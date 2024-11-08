@@ -1,0 +1,54 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ/Android Studio related
+*.iml
+*.ipr
+*.iws
+.idea/
+.android/
+.gradle/
+
+# VS Code related
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to include in version control, so this line
+# is commented out by default.
+# Uncomment if you want to ignore .vscode configurations.
+# .vscode/
+
+# Flutter/Dart related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Generated documentation
+**/doc/api/
+
+# Build outputs
+/build/
+**/ios/Flutter/.last_build_id
+/android/app/debug/
+.android/app/profile/
+.android/app/release/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Temporary files
+**/tmp/
+**/temp/
