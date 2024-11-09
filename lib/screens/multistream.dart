@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MultiStreamScreen extends StatefulWidget {
   const MultiStreamScreen({super.key});
@@ -9,7 +10,7 @@ class MultiStreamScreen extends StatefulWidget {
 }
 
 class _MultiStreamScreenState extends State<MultiStreamScreen> {
-  final List<String> rtspUrls = [
+  List<String> rtspUrls = [
     'rtsp://192.168.1.27:554/stream1',
     'rtsp://192.168.1.231/media/video1',
     'rtsp://192.168.1.14:554/ch0_1.264',
@@ -18,9 +19,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     'rtsp://192.168.1.232/media/video1',
   ];
 
-  List<VlcPlayerController>? controllers;
+  late List<VlcPlayerController> controllers = [];
   int crossAxisCount = 1; // Default layout
-  int? selectedStreamIndex;
 
   @override
   void initState() {
@@ -29,6 +29,11 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   }
 
   Future<void> _initializeControllers() async {
+    for (var controller in controllers) {
+      await controller.stop();
+      controller.dispose();
+    }
+
     controllers = rtspUrls.map((url) {
       return VlcPlayerController.network(
         url,
@@ -36,177 +41,271 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
         autoPlay: true,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            '--network-caching=50',
-            '--file-caching=20',
-            '--clock-jitter=0',
-            '--live-caching=20',
+            '--network-caching=200',
+            '--file-caching=200',
+            '--live-caching=200',
+            '--rtsp-timeout=10',
           ]),
         ),
       );
     }).toList();
+
     setState(() {});
   }
 
   @override
   void dispose() {
-    for (var controller in controllers!) {
+    for (var controller in controllers) {
       controller.stop();
       controller.dispose();
     }
     super.dispose();
   }
 
-  void _changeLayout(int count) {
-    setState(() {
-      crossAxisCount = count;
-      selectedStreamIndex = null;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Live Video Streams'),
-        backgroundColor: Colors.deepPurple,
-        actions: [
-          _buildLayoutButton("1x1", 1),
-          _buildLayoutButton("2x2", 2),
-          _buildLayoutButton("3x3", 3),
-        ],
-      ),
-      body: selectedStreamIndex != null
-          ? _buildFullScreenPlayer(selectedStreamIndex!)
-          : (controllers == null
-              ? const Center(child: CircularProgressIndicator())
-              : _buildResponsiveGridLayout()),
-    );
-  }
-
-  Widget _buildLayoutButton(String label, int count) {
-    return TextButton(
-      onPressed: () => _changeLayout(count),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: crossAxisCount == count && selectedStreamIndex == null
-              ? Colors.amber
-              : Colors.white,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResponsiveGridLayout() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8.0),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        mainAxisSpacing: 8.0,
-        crossAxisSpacing: 8.0,
-        childAspectRatio: 16 / 9,
-      ),
-      itemCount: controllers!.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onDoubleTap: () {
-            setState(() {
-              selectedStreamIndex = index;
-            });
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12.0),
-            child: Container(
-              color: Colors.black,
-              child: StreamPlayer(
-                controller: controllers![index],
-                aspectRatio: 16 / 9,
-              ),
+  void _addStreamDialog() {
+    TextEditingController urlController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Add Stream URL"),
+          content: TextField(
+            controller: urlController,
+            decoration: const InputDecoration(
+              hintText: "Enter RTSP URL",
+              border: OutlineInputBorder(),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (urlController.text.isNotEmpty) {
+                  setState(() {
+                    rtspUrls.add(urlController.text);
+                    controllers.add(
+                      VlcPlayerController.network(
+                        urlController.text,
+                        hwAcc: HwAcc.full,
+                        autoPlay: true,
+                      ),
+                    );
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Stream added successfully!")),
+                  );
+                }
+              },
+              child: const Text("Add"),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildFullScreenPlayer(int index) {
+  void _changeLayout(int count) {
+    setState(() {
+      crossAxisCount = count;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Layout changed to $count x $count")),
+    );
+  }
+
+  void _refreshStreams() async {
+    await _initializeControllers();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Streams refreshed!")),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate aspect ratio dynamically
+    final childAspectRatio =
+        screenWidth / (screenHeight / crossAxisCount * 1.2); // Adjust multiplier for spacing
+
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
+      appBar: AppBar(
+        title: const Text("My Devices"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "Refresh Streams",
+            onPressed: _refreshStreams,
+          ),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.grid_view),
+            tooltip: "Change Layout",
+            onSelected: _changeLayout,
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 1, child: Text("1x1 Layout")),
+              const PopupMenuItem(value: 2, child: Text("2x2 Layout")),
+              const PopupMenuItem(value: 3, child: Text("3x3 Layout")),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: "Add Stream",
+            onPressed: _addStreamDialog,
+          ),
+        ],
+      ),
+      body: controllers.isEmpty
+          ? const Center(child: Text("No streams available. Add one!"))
+          : GridView.builder(
+        padding: const EdgeInsets.all(8.0),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 8.0,
+          crossAxisSpacing: 8.0,
+          childAspectRatio: childAspectRatio,
+        ),
+        itemCount: controllers.length,
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onDoubleTap: () => _openFullScreen(context, controllers[index]),
+            child: _buildStreamContainer(
+              context,
+              controllers[index],
+              'Stream ${index + 1}',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStreamContainer(
+      BuildContext context, VlcPlayerController controller, String streamName) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      elevation: 6.0,
+      child: Column(
         children: [
-          Center(
-            child: StreamPlayer(
-              controller: controllers![index],
-              aspectRatio: MediaQuery.of(context).size.aspectRatio,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  streamName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: () => _showStreamSettings(context, streamName),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            top: 40,
-            right: 16,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () {
-                setState(() {
-                  selectedStreamIndex = null;
-                });
-              },
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(12.0)),
+              child: VlcPlayer(
+                controller: controller,
+                aspectRatio: 16 / 9,
+                placeholder: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildBottomButton(Icons.message, "Message", () {
+                  // Message button functionality
+                }),
+                _buildBottomButton(Icons.play_arrow, "Playback", () {
+                  // Playback button functionality
+                }),
+                _buildBottomButton(Icons.more_horiz, "More", () {
+                  // More button functionality
+                }),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildBottomButton(IconData icon, String label, VoidCallback onPressed) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(icon, color: Colors.deepPurple),
+          onPressed: onPressed,
+        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  void _showStreamSettings(BuildContext context, String streamName) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Settings for $streamName"),
+          content: const Text("Stream-specific settings can be added here."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openFullScreen(BuildContext context, VlcPlayerController controller) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return FullScreenPlayer(controller: controller);
+        },
+      ),
+    );
+  }
 }
 
-class StreamPlayer extends StatefulWidget {
+class FullScreenPlayer extends StatelessWidget {
   final VlcPlayerController controller;
-  final double aspectRatio;
 
-  const StreamPlayer({super.key, required this.controller, required this.aspectRatio});
-
-  @override
-  _StreamPlayerState createState() => _StreamPlayerState();
-}
-
-class _StreamPlayerState extends State<StreamPlayer> {
-  bool isPlaying = true;
-
-  @override
-  void dispose() {
-    widget.controller.stop();
-    widget.controller.dispose();
-    super.dispose();
-  }
-
-  void _togglePlayPause() {
-    setState(() {
-      isPlaying ? widget.controller.pause() : widget.controller.play();
-      isPlaying = !isPlaying;
-    });
-  }
+  const FullScreenPlayer({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        VlcPlayer(
-          controller: widget.controller,
-          aspectRatio: widget.aspectRatio,
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: VlcPlayer(
+          controller: controller,
+          aspectRatio: MediaQuery.of(context).size.aspectRatio,
           placeholder: const Center(child: CircularProgressIndicator()),
         ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: IconButton(
-            icon: Icon(
-              isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-              color: Colors.white,
-              size: 30.0,
-            ),
-            onPressed: _togglePlayPause,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

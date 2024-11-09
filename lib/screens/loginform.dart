@@ -1,3 +1,4 @@
+import 'package:endroid/screens/homescreen.dart';
 import 'package:endroid/screens/multistream.dart';
 import 'package:endroid/screens/signupscreen.dart';
 import 'package:flutter/material.dart';
@@ -55,7 +56,7 @@ class LoginForm extends StatelessWidget {
             // Handle login logic
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => MultiStreamScreen()),
+              MaterialPageRoute(builder: (context) => HomeScreen()),
             );
           },
           style: ElevatedButton.styleFrom(
