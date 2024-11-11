@@ -1,4 +1,4 @@
-import 'package:endroid/screens/multistream.dart';
+import 'package:endroid/screens/multi_stream_screen.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {

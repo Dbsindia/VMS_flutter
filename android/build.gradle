@@ -1,18 +1,38 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    repositories {
+        google()        // Required for Android dependencies
+        mavenCentral()  // Central repository for Java/Android dependencies
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'   // Updated Gradle Plugin
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22' // Updated Kotlin Plugin
+    }
+}
+
 allprojects {
     repositories {
-        google()
-        mavenCentral()
+        google()        // Ensure Google's Maven repository is available
+        mavenCentral()  // Central repository for Java/Android dependencies
     }
 }
 
 rootProject.buildDir = "../build"
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+
+    // Dynamically add namespace to subprojects with Android plugins
+    if (project.plugins.hasPlugin('com.android.application') || project.plugins.hasPlugin('com.android.library')) {
+        android {
+            if (!namespace) {
+                namespace = "com.example.${project.name}"
+            }
+        }
+    }
 }
 
+// Task to clean the project
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
