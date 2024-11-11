@@ -20,6 +20,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   ];
 
   late List<VlcPlayerController> controllers = [];
+  Map<VlcPlayerController, String> controllerToUrlMap = {}; // Mapping controllers to their URLs
   int crossAxisCount = 1; // Default layout
 
   @override
@@ -35,7 +36,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     }
 
     controllers = rtspUrls.map((url) {
-      return VlcPlayerController.network(
+      final controller = VlcPlayerController.network(
         url,
         hwAcc: HwAcc.full,
         autoPlay: true,
@@ -48,6 +49,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
           ]),
         ),
       );
+      controllerToUrlMap[controller] = url; // Track the controller's URL
+      return controller;
     }).toList();
 
     setState(() {});
@@ -84,15 +87,16 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
             ElevatedButton(
               onPressed: () {
                 if (urlController.text.isNotEmpty) {
+                  final url = urlController.text;
                   setState(() {
-                    rtspUrls.add(urlController.text);
-                    controllers.add(
-                      VlcPlayerController.network(
-                        urlController.text,
-                        hwAcc: HwAcc.full,
-                        autoPlay: true,
-                      ),
+                    rtspUrls.add(url);
+                    final controller = VlcPlayerController.network(
+                      url,
+                      hwAcc: HwAcc.full,
+                      autoPlay: true,
                     );
+                    controllers.add(controller);
+                    controllerToUrlMap[controller] = url; // Track URL for the new controller
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -129,9 +133,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Calculate aspect ratio dynamically
     final childAspectRatio =
-        screenWidth / (screenHeight / crossAxisCount * 1.2); // Adjust multiplier for spacing
+        screenWidth / (screenHeight / crossAxisCount * 1.2); // Adjusted ratio
 
     return Scaffold(
       appBar: AppBar(
@@ -272,21 +275,54 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   }
 
   void _openFullScreen(BuildContext context, VlcPlayerController controller) {
+    final url = controllerToUrlMap[controller]!;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) {
-          return FullScreenPlayer(controller: controller);
+          return FullScreenPlayer(url: url);
         },
       ),
     );
   }
 }
 
-class FullScreenPlayer extends StatelessWidget {
-  final VlcPlayerController controller;
+class FullScreenPlayer extends StatefulWidget {
+  final String url;
 
-  const FullScreenPlayer({super.key, required this.controller});
+  const FullScreenPlayer({super.key, required this.url});
+
+  @override
+  _FullScreenPlayerState createState() => _FullScreenPlayerState();
+}
+
+class _FullScreenPlayerState extends State<FullScreenPlayer> {
+  late VlcPlayerController _fullscreenController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fullscreenController = VlcPlayerController.network(
+      widget.url,
+      hwAcc: HwAcc.full,
+      autoPlay: true,
+      options: VlcPlayerOptions(
+        advanced: VlcAdvancedOptions([
+          '--network-caching=200',
+          '--file-caching=200',
+          '--live-caching=200',
+          '--rtsp-timeout=10',
+        ]),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _fullscreenController.stop();
+    _fullscreenController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +337,7 @@ class FullScreenPlayer extends StatelessWidget {
       ),
       body: Center(
         child: VlcPlayer(
-          controller: controller,
+          controller: _fullscreenController,
           aspectRatio: MediaQuery.of(context).size.aspectRatio,
           placeholder: const Center(child: CircularProgressIndicator()),
         ),
