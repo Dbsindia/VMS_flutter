@@ -34,12 +34,12 @@ dependencies:
   flutter_background: ^1.3.0+1
   flutter_blue_plus: ^1.4.0
   flutter_vlc_player: ^7.4.2
-  mobile_scanner: ^2.0.0
+  mobile_scanner: ^6.0.2
   path_provider: ^2.1.5
   ping_discover_network_forked: ^0.0.1
-  # network_tools: ^1.0.0
   provider: ^6.1.2
   shared_preferences: ^2.3.2
+  visibility_detector: ^0.4.0+2
 
 dev_dependencies:
   flutter_lints: ^5.0.0

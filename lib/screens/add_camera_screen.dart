@@ -62,6 +62,7 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
+  /// Saves the camera details to local storage
   Future<void> _saveCamera(String name, String url) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> cameras = prefs.getStringList('savedCameras') ?? [];
@@ -69,6 +70,7 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     await prefs.setStringList('savedCameras', cameras);
   }
 
+  /// Scans a QR code and saves the camera details
   Future<void> _scanQrCode() async {
     String? result = await Navigator.push(
       context,
@@ -89,6 +91,7 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
+  /// Navigates to the Bluetooth devices screen
   void _searchBluetoothDevices() {
     Navigator.push(
       context,
@@ -98,6 +101,7 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
+  /// Navigates to the network cameras screen
   void _discoverNetworkCameras() {
     Navigator.push(
       context,
@@ -107,6 +111,7 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
+  /// Adds a camera manually
   Future<void> _addCameraManually(BuildContext context) async {
     TextEditingController nameController = TextEditingController();
     TextEditingController urlController = TextEditingController();
@@ -143,15 +148,18 @@ class AddCameraScreenState extends State<AddCameraScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.isNotEmpty &&
-                    urlController.text.isNotEmpty) {
-                  await _saveCamera(nameController.text, urlController.text);
-                  if (!mounted) return; // Ensure widget is still valid
-                  Navigator.pop(context);
+                if (nameController.text.isEmpty || urlController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Camera added successfully!")),
+                    const SnackBar(content: Text("Please fill in all fields.")),
                   );
+                  return;
                 }
+                await _saveCamera(nameController.text, urlController.text);
+                if (!mounted) return; // Ensure widget is still valid
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Camera added successfully!")),
+                );
               },
               child: const Text("Add"),
             ),
@@ -172,9 +180,10 @@ class QRCodeScannerScreen extends StatelessWidget {
         title: const Text("Scan QR Code"),
       ),
       body: MobileScanner(
-        onDetect: (barcode, _) {
-          if (barcode.rawValue != null) {
-            Navigator.pop(context, barcode.rawValue);
+        onDetect: (BarcodeCapture barcode) {
+          if (barcode.barcodes.isNotEmpty) {
+            final String? code = barcode.barcodes.first.rawValue;
+            Navigator.pop(context, code);
           }
         },
       ),

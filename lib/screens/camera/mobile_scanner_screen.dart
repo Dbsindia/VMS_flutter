@@ -11,15 +11,21 @@ class MobileScannerScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan QR Code')),
       body: MobileScanner(
-        onDetect: (barcode, args) {
-          // Extract the barcode data
-          final String? code = barcode.rawValue;
+        onDetect: (BarcodeCapture barcode) {
+          final String? code = barcode.barcodes.first.rawValue;
 
-          // Pass the result back to the parent widget
-          onDetect(code);
+          if (code != null) {
+            // Pass the result back to the parent widget
+            onDetect(code);
 
-          // Navigate back after detection
-          Navigator.pop(context);
+            // Navigate back after detection
+            Navigator.pop(context);
+          } else {
+            // Handle cases where the QR code might not have valid data
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid QR Code detected.')),
+            );
+          }
         },
       ),
     );

@@ -4,10 +4,10 @@ import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 class FullScreenPlayer extends StatefulWidget {
   final String url;
 
-  const FullScreenPlayer({Key? key, required this.url}) : super(key: key);
+  const FullScreenPlayer({super.key, required this.url});
 
   @override
-  _FullScreenPlayerState createState() => _FullScreenPlayerState();
+  State<FullScreenPlayer> createState() => _FullScreenPlayerState();
 }
 
 class _FullScreenPlayerState extends State<FullScreenPlayer> {
@@ -25,7 +25,6 @@ class _FullScreenPlayerState extends State<FullScreenPlayer> {
 
   @override
   void dispose() {
-    _controller.stop();
     _controller.dispose();
     super.dispose();
   }
