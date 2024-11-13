@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "167478436854",
+    "project_id": "endroid-a09b6",
+    "storage_bucket": "endroid-a09b6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:167478436854:android:f2ba30b653bf551cce9dd7",
+        "android_client_info": {
+          "package_name": "com.example.endroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhE8OCPSLfqHTY8CSfT3OrC1A1v6BhLjg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:167478436854:android:fe657615036c925ace9dd7",
+        "android_client_info": {
+          "package_name": "com.example.endroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhE8OCPSLfqHTY8CSfT3OrC1A1v6BhLjg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

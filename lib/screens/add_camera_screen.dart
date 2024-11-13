@@ -1,17 +1,19 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:endroid/screens/bluetooth_devices_screen.dart';
 import 'package:endroid/screens/network_cameras_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class AddCameraScreen extends StatefulWidget {
   const AddCameraScreen({super.key});
 
   @override
-  AddCameraScreenState createState() => AddCameraScreenState(); // Made State public
+  AddCameraScreenState createState() =>
+      AddCameraScreenState(); // Made State public
 }
 
 class AddCameraScreenState extends State<AddCameraScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String scannedResult = "";
 
   @override
@@ -25,7 +27,8 @@ class AddCameraScreenState extends State<AddCameraScreen> {
         children: [
           // QR Code Scanner
           ListTile(
-            leading: const Icon(Icons.qr_code_scanner, color: Colors.deepPurple),
+            leading:
+                const Icon(Icons.qr_code_scanner, color: Colors.deepPurple),
             title: const Text("Scan QR Code"),
             subtitle: const Text("Scan a QR code to add a camera"),
             onTap: _scanQrCode,
@@ -36,7 +39,8 @@ class AddCameraScreenState extends State<AddCameraScreen> {
           ListTile(
             leading: const Icon(Icons.bluetooth, color: Colors.deepPurple),
             title: const Text("Connect via Bluetooth"),
-            subtitle: const Text("Search and connect to nearby Bluetooth devices"),
+            subtitle:
+                const Text("Search and connect to nearby Bluetooth devices"),
             onTap: _searchBluetoothDevices,
           ),
           const Divider(),
@@ -62,12 +66,23 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
-  /// Saves the camera details to local storage
+  /// Saves the camera details to Firebase Firestore
   Future<void> _saveCamera(String name, String url) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> cameras = prefs.getStringList('savedCameras') ?? [];
-    cameras.add('$name|$url');
-    await prefs.setStringList('savedCameras', cameras);
+    try {
+      await _firestore.collection('cameraStreams').add({
+        'name': name,
+        'url': url,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Camera $name added successfully!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save camera: $e")),
+      );
+    }
   }
 
   /// Scans a QR code and saves the camera details
@@ -85,10 +100,6 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     });
 
     await _saveCamera("QR Camera", result);
-    if (!mounted) return; // Double-check before using BuildContext
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Scanned and added: $result")),
-    );
   }
 
   /// Navigates to the Bluetooth devices screen
@@ -157,9 +168,6 @@ class AddCameraScreenState extends State<AddCameraScreen> {
                 await _saveCamera(nameController.text, urlController.text);
                 if (!mounted) return; // Ensure widget is still valid
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Camera added successfully!")),
-                );
               },
               child: const Text("Add"),
             ),

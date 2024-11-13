@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/stream_model.dart';
 import '../controllers/vlc_controller_initializer.dart';
 import 'add_camera_screen.dart';
@@ -20,11 +20,12 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   int crossAxisCount = 2; // Default grid layout
   bool isLoading = true;
   final ScrollController _scrollController = ScrollController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
     super.initState();
-    _loadStoredStreams();
+    _loadStreamsFromFirestore();
     _scrollController.addListener(_manageVisibility);
   }
 
@@ -37,20 +38,38 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     super.dispose();
   }
 
-  /// Load streams from SharedPreferences
-  Future<void> _loadStoredStreams() async {
+  /// Load streams from Firestore
+  Future<void> _loadStreamsFromFirestore() async {
     setState(() {
       isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final savedStreams = prefs.getStringList('savedCameras') ?? [];
+    try {
+      final snapshot = await _firestore.collection('cameraStreams').get();
+      streams = snapshot.docs.map((doc) {
+        return StreamModel.fromFirestore(doc.data(), doc.id);
+      }).toList();
 
-    streams = savedStreams.map((camera) {
-      final parts = camera.split('|');
-      return StreamModel(name: parts[0], url: parts[1]);
-    }).toList();
+      _initializeControllers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load streams: $e")),
+      );
+    }
 
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  /// Initialize VLC controllers for streams
+  void _initializeControllers() async {
+    // Dispose old controllers
+    for (var controller in controllers) {
+      controller.dispose();
+    }
+
+    // Initialize new controllers
     controllers = await VlcControllerInitializer.initialize(
       streams.map((stream) => stream.url).toList(),
       options: {
@@ -59,17 +78,21 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
         'live-caching': '200',
       },
     );
-
-    setState(() {
-      isLoading = false;
-    });
+    setState(() {}); // Refresh the UI
   }
 
-  /// Save streams to SharedPreferences
-  Future<void> _saveStreams() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encodedStreams = json.encode(streams.map((stream) => stream.toJson()).toList());
-    await prefs.setString('savedCameras', encodedStreams);
+  /// Refresh Streams
+  Future<void> _refreshStreams() async {
+    try {
+      await _loadStreamsFromFirestore();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Streams refreshed successfully!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to refresh streams: $e")),
+      );
+    }
   }
 
   /// Manage visibility of streams during scrolling
@@ -114,28 +137,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
       MaterialPageRoute(
         builder: (context) => const AddCameraScreen(),
       ),
-    ).then((_) => _loadStoredStreams()); // Reload streams when returning
-  }
-
-  /// Refresh Streams
-  void _refreshStreams() async {
-    for (var controller in controllers) {
-      controller.dispose();
-    }
-
-    controllers = await VlcControllerInitializer.initialize(
-      streams.map((stream) => stream.url).toList(),
-      options: {
-        'network-caching': '200',
-        'file-caching': '200',
-        'live-caching': '200',
-      },
-    );
-
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Streams refreshed!")),
-    );
+    ).then((_) => _loadStreamsFromFirestore()); // Reload streams when returning
   }
 
   /// Change Layout of the Grid
@@ -198,7 +200,6 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                       ),
                       child: Stack(
                         children: [
-                          // Stream Player
                           Positioned.fill(
                             child: GestureDetector(
                               onDoubleTap: () =>
@@ -212,7 +213,6 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               ),
                             ),
                           ),
-                          // Top Overlay
                           Positioned(
                             top: 8.0,
                             left: 8.0,
@@ -235,7 +235,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.settings, color: Colors.white),
+                                  icon: const Icon(Icons.settings,
+                                      color: Colors.white),
                                   onPressed: () {
                                     // Handle settings here
                                   },
@@ -243,7 +244,6 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               ],
                             ),
                           ),
-                          // Play/Pause Button
                           Center(
                             child: IconButton(
                               icon: Icon(
@@ -262,7 +262,6 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               },
                             ),
                           ),
-                          // Bottom Overlay
                           Positioned(
                             bottom: 8.0,
                             left: 8.0,
@@ -271,26 +270,24 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.message, color: Colors.deepPurple),
+                                  icon: const Icon(Icons.message,
+                                      color: Colors.deepPurple),
                                   onPressed: () {
                                     // Handle message action
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.info, color: Colors.deepPurple),
+                                  icon: const Icon(Icons.info,
+                                      color: Colors.deepPurple),
                                   onPressed: () {
                                     // Handle info action
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.redAccent),
                                   onPressed: () async {
-                                    setState(() {
-                                      controllers[index].dispose();
-                                      controllers.removeAt(index);
-                                      streams.removeAt(index);
-                                    });
-                                    await _saveStreams();
+                                    await _deleteStream(index);
                                   },
                                 ),
                               ],
@@ -302,5 +299,24 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                   },
                 ),
     );
+  }
+
+  /// Delete a stream and update Firestore
+  Future<void> _deleteStream(int index) async {
+    try {
+      await _firestore.collection('cameraStreams').doc(streams[index].id).delete();
+      setState(() {
+        controllers[index].dispose();
+        controllers.removeAt(index);
+        streams.removeAt(index);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Stream deleted successfully!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete stream: $e")),
+      );
+    }
   }
 }
