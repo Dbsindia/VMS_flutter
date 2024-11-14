@@ -1,42 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
-import 'bottom_button.dart';
+import '../models/stream_model.dart';
+import '../screens/full_screen_player.dart';
 
 class StreamCard extends StatelessWidget {
+  final StreamModel stream;
   final VlcPlayerController controller;
-  final String streamName;
+  final VoidCallback onDelete;
 
   const StreamCard({
     super.key,
+    required this.stream,
     required this.controller,
-    required this.streamName,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       elevation: 6.0,
-      child: Column(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  streamName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          Positioned.fill(
+            child: GestureDetector(
+              onDoubleTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FullScreenPlayer(url: stream.url),
                 ),
-                const Icon(Icons.settings, color: Colors.grey),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(12.0)),
+              ),
               child: VlcPlayer(
                 controller: controller,
                 aspectRatio: 16 / 9,
@@ -44,14 +39,31 @@ class StreamCard extends StatelessWidget {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
+          Positioned(
+            top: 8.0,
+            left: 8.0,
+            right: 8.0,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                BottomButton(icon: Icons.message, label: "Message", onPressed: () {}),
-                BottomButton(icon: Icons.play_arrow, label: "Playback", onPressed: () {}),
-                BottomButton(icon: Icons.more_horiz, label: "More", onPressed: () {}),
+                Text(
+                  stream.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(1, 1),
+                        blurRadius: 2,
+                        color: Colors.black,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  onPressed: onDelete,
+                ),
               ],
             ),
           ),
