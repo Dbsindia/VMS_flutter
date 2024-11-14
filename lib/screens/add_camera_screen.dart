@@ -1,8 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:endroid/screens/bluetooth_devices_screen.dart';
 import 'package:endroid/screens/network_cameras_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+
 
 class AddCameraScreen extends StatefulWidget {
   const AddCameraScreen({super.key});
@@ -14,6 +17,8 @@ class AddCameraScreen extends StatefulWidget {
 
 class AddCameraScreenState extends State<AddCameraScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+    final Uuid uuid = const Uuid(); // For generating unique IDs
+
   String scannedResult = "";
 
   @override
@@ -66,17 +71,19 @@ class AddCameraScreenState extends State<AddCameraScreen> {
     );
   }
 
-  /// Saves the camera details to Firebase Firestore
+  /// Save camera to Firestore with a unique ID
   Future<void> _saveCamera(String name, String url) async {
+    final cameraId = uuid.v4(); // Generate unique ID for the camera
+
     try {
-      await _firestore.collection('cameraStreams').add({
+      await _firestore.collection('cameraStreams').doc(cameraId).set({
         'name': name,
         'url': url,
-        'timestamp': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Camera $name added successfully!")),
+        SnackBar(content: Text("Camera '$name' added successfully!")),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

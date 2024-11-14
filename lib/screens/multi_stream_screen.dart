@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/stream_model.dart';
-import '../controllers/vlc_controller_initializer.dart';
+import 'package:endroid/models/stream_model.dart';
+import 'package:endroid/controllers/vlc_controller_initializer.dart';
+import 'package:endroid/services/firebase_service.dart';
 import 'add_camera_screen.dart';
 import 'full_screen_player.dart';
 
@@ -20,12 +20,12 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   int crossAxisCount = 2; // Default grid layout
   bool isLoading = true;
   final ScrollController _scrollController = ScrollController();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
   @override
   void initState() {
     super.initState();
-    _loadStreamsFromFirestore();
+    _loadStoredStreams();
     _scrollController.addListener(_manageVisibility);
   }
 
@@ -39,52 +39,33 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   }
 
   /// Load streams from Firestore
-  Future<void> _loadStreamsFromFirestore() async {
-    setState(() {
-      isLoading = true;
-    });
+  Future<void> _loadStoredStreams() async {
+    setState(() => isLoading = true);
 
     try {
-      final snapshot = await _firestore.collection('cameraStreams').get();
-      streams = snapshot.docs.map((doc) {
-        return StreamModel.fromFirestore(doc.data(), doc.id);
-      }).toList();
-
-      _initializeControllers();
+      streams = await _firebaseService.fetchCameraStreams(); // Fetch streams from Firestore
+      controllers = await VlcControllerInitializer.initialize(
+        streams.map((stream) => stream.url).toList(),
+        options: {
+          'network-caching': '200',
+          'file-caching': '200',
+          'live-caching': '200',
+        },
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load streams: $e")),
+        SnackBar(content: Text('Failed to load streams: $e')),
       );
     }
 
-    setState(() {
-      isLoading = false;
-    });
-  }
-
-  /// Initialize VLC controllers for streams
-  void _initializeControllers() async {
-    // Dispose old controllers
-    for (var controller in controllers) {
-      controller.dispose();
-    }
-
-    // Initialize new controllers
-    controllers = await VlcControllerInitializer.initialize(
-      streams.map((stream) => stream.url).toList(),
-      options: {
-        'network-caching': '200',
-        'file-caching': '200',
-        'live-caching': '200',
-      },
-    );
-    setState(() {}); // Refresh the UI
+    setState(() => isLoading = false);
   }
 
   /// Refresh Streams
   Future<void> _refreshStreams() async {
+    setState(() => isLoading = true);
     try {
-      await _loadStreamsFromFirestore();
+      await _loadStoredStreams(); // Reload streams from Firestore
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Streams refreshed successfully!")),
       );
@@ -93,6 +74,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
         SnackBar(content: Text("Failed to refresh streams: $e")),
       );
     }
+    setState(() => isLoading = false);
   }
 
   /// Manage visibility of streams during scrolling
@@ -137,7 +119,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
       MaterialPageRoute(
         builder: (context) => const AddCameraScreen(),
       ),
-    ).then((_) => _loadStreamsFromFirestore()); // Reload streams when returning
+    ).then((_) => _loadStoredStreams()); // Reload streams when returning
   }
 
   /// Change Layout of the Grid
@@ -148,6 +130,25 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Layout changed to $count x $count")),
     );
+  }
+
+  /// Delete a stream and update Firestore
+  Future<void> _deleteStream(int index) async {
+    try {
+      await _firebaseService.deleteCameraStream(streams[index].id);
+      setState(() {
+        controllers[index].dispose();
+        controllers.removeAt(index);
+        streams.removeAt(index);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Stream deleted successfully!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete stream: $e")),
+      );
+    }
   }
 
   @override
@@ -299,24 +300,5 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                   },
                 ),
     );
-  }
-
-  /// Delete a stream and update Firestore
-  Future<void> _deleteStream(int index) async {
-    try {
-      await _firestore.collection('cameraStreams').doc(streams[index].id).delete();
-      setState(() {
-        controllers[index].dispose();
-        controllers.removeAt(index);
-        streams.removeAt(index);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Stream deleted successfully!")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to delete stream: $e")),
-      );
-    }
   }
 }
