@@ -8,7 +8,7 @@ class StreamProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<StreamModel> streams = [];
-  List<VlcPlayerController> controllers = [];
+  List<VlcPlayerController?> controllers = [];
   bool isLoading = false;
   int gridCount = 1; // Default to 1x1 layout
 
@@ -23,7 +23,12 @@ class StreamProvider with ChangeNotifier {
         return StreamModel.fromFirestore(doc.data(), doc.id);
       }).toList();
 
-      await _initializeControllers();
+      // Initialize controllers but do not play streams immediately
+      controllers = List<VlcPlayerController?>.filled(
+        streams.length,
+        null,
+        growable: false,
+      );
     } catch (e) {
       debugPrint("Error loading streams: $e");
     }
@@ -32,36 +37,24 @@ class StreamProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Initialize VLC controllers
-  Future<void> _initializeControllers() async {
-    // Dispose old controllers
-    for (var controller in controllers) {
-      controller.dispose();
-    }
-    controllers.clear();
-
-    // Initialize new controllers
-    controllers = await VlcControllerInitializer.initialize(
-      streams.map((stream) => stream.url).toList(),
+  /// Initialize a controller when needed
+  Future<VlcPlayerController> initializeController(String url) async {
+    final controller = await VlcControllerInitializer.initializeSingle(
+      url,
       options: {
-        'network-caching': '200',
-        'file-caching': '200',
-        'live-caching': '200',
+        'network-caching': '150',
+        'file-caching': '150',
+        'live-caching': '150',
       },
     );
-    notifyListeners();
-  }
-
-  /// Refresh streams
-  Future<void> refreshStreams() async {
-    await loadStreams();
+    return controller;
   }
 
   /// Delete a stream
   Future<void> deleteStream(int index) async {
     try {
       await _firestore.collection('cameraStreams').doc(streams[index].id).delete();
-      controllers[index].dispose();
+      controllers[index]?.dispose();
       controllers.removeAt(index);
       streams.removeAt(index);
       notifyListeners();

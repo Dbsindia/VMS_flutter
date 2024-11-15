@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/stream_provider.dart' as custom_stream_provider;
 import '../widgets/stream_card.dart';
-import 'add_camera_screen.dart';
+import 'full_screen_view.dart';
 
 class MultiStreamScreen extends StatelessWidget {
   const MultiStreamScreen({super.key});
@@ -16,17 +16,8 @@ class MultiStreamScreen extends StatelessWidget {
         title: const Text("My Streams"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddCameraScreen()),
-              ).then((_) => streamProvider.loadStreams());
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => streamProvider.refreshStreams(),
+            onPressed: streamProvider.loadStreams,
           ),
           PopupMenuButton<int>(
             icon: const Icon(Icons.grid_view),
@@ -57,12 +48,32 @@ class MultiStreamScreen extends StatelessWidget {
                     crossAxisSpacing: 8.0,
                     childAspectRatio: streamProvider.gridCount == 1 ? 1.5 : 1.2,
                   ),
-                  itemCount: streamProvider.controllers.length,
+                  itemCount: streamProvider.streams.length,
                   itemBuilder: (context, index) {
+                    final stream = streamProvider.streams[index];
                     return StreamCard(
-                      stream: streamProvider.streams[index],
-                      controller: streamProvider.controllers[index],
-                      onDelete: () => streamProvider.deleteStream(index),
+                      stream: stream,
+                      onOfflineAssistance: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Check power supply and network"),
+                          ),
+                        );
+                      },
+                      onCardTap: () async {
+                        final controller =
+                            await streamProvider.initializeController(stream.url);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                FullScreenView(stream: stream, controller: controller),
+                          ),
+                        );
+                      },
+                      onDelete: () {
+                        streamProvider.deleteStream(index);
+                      },
                     );
                   },
                 ),
