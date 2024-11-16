@@ -29,7 +29,8 @@ class StreamCard extends StatelessWidget {
             Positioned.fill(
               child: stream.isOnline
                   ? Image.network(
-                      stream.url,
+                      stream.snapshotUrl ??
+                          stream.url, // Use snapshot if available
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
                         child: Icon(Icons.broken_image,

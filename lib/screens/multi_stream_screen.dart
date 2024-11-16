@@ -17,16 +17,15 @@ class MultiStreamScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: streamProvider.loadStreams,
+            onPressed: () async {
+              await streamProvider.loadStreams();
+            },
           ),
           PopupMenuButton<int>(
             icon: const Icon(Icons.grid_view),
             tooltip: "Change Layout",
             onSelected: (value) {
               streamProvider.updateGridLayout(value);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Layout changed to $value x $value")),
-              );
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 1, child: Text("1x1 Layout")),
@@ -40,39 +39,45 @@ class MultiStreamScreen extends StatelessWidget {
           ? const Center(child: CircularProgressIndicator())
           : streamProvider.streams.isEmpty
               ? const Center(child: Text("No streams available. Add one!"))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(8.0),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: streamProvider.gridCount,
-                    mainAxisSpacing: 8.0,
-                    crossAxisSpacing: 8.0,
-                    childAspectRatio: streamProvider.gridCount == 1 ? 1.5 : 1.2,
-                  ),
-                  itemCount: streamProvider.streams.length,
-                  itemBuilder: (context, index) {
-                    final stream = streamProvider.streams[index];
-                    return StreamCard(
-                      stream: stream,
-                      onOfflineAssistance: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Check power supply and network"),
-                          ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final gridCount = streamProvider.gridCount;
+                    final childAspectRatio = gridCount == 1
+                        ? 1.5
+                        : constraints.maxWidth / (constraints.maxHeight / gridCount);
+
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(8.0),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridCount,
+                        mainAxisSpacing: 8.0,
+                        crossAxisSpacing: 8.0,
+                        childAspectRatio: childAspectRatio,
+                      ),
+                      itemCount: streamProvider.streams.length,
+                      itemBuilder: (context, index) {
+                        final stream = streamProvider.streams[index];
+                        return StreamCard(
+                          stream: stream,
+                          onOfflineAssistance: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Check power supply and network")),
+                            );
+                          },
+                          onCardTap: () async {
+                            final controller = await streamProvider.initializeController(stream.url);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    FullScreenView(stream: stream, controller: controller),
+                              ),
+                            );
+                          },
+                          onDelete: () async {
+                            await streamProvider.deleteStream(index);
+                          },
                         );
-                      },
-                      onCardTap: () async {
-                        final controller =
-                            await streamProvider.initializeController(stream.url);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                FullScreenView(stream: stream, controller: controller),
-                          ),
-                        );
-                      },
-                      onDelete: () {
-                        streamProvider.deleteStream(index);
                       },
                     );
                   },

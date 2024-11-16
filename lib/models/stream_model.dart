@@ -6,8 +6,7 @@ class StreamModel {
   final String url;
   final bool isOnline;
   final String? offlineTimestamp;
-  final String? snapshotUrl; // Add this property
-
+  final String? snapshotUrl;
 
   StreamModel({
     required this.id,
@@ -16,31 +15,29 @@ class StreamModel {
     required this.isOnline,
     this.offlineTimestamp,
     this.snapshotUrl,
-
   });
 
-  /// Creates a `StreamModel` from a JSON map and Firestore ID
   factory StreamModel.fromJson(Map<String, dynamic> json, String id) {
     return StreamModel(
       id: id,
       name: json['name'] ?? 'Unnamed Stream',
       url: json['url'] ?? '',
-      isOnline: json['isOnline'] ?? true, // Default to online
-      offlineTimestamp: json['offlineTimestamp'], // Nullable
-      snapshotUrl: json['snapshotUrl'], // Fetch from the database
-
+      isOnline: json['isOnline'] ?? true,
+      offlineTimestamp: json['offlineTimestamp'],
+      snapshotUrl: json['snapshotUrl'],
     );
   }
 
-  /// Converts a `StreamModel` to a JSON map (excluding Firestore ID)
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'url': url,
       'isOnline': isOnline,
       'offlineTimestamp': offlineTimestamp,
+      'snapshotUrl': snapshotUrl,
     };
   }
+
 
   /// Encodes a list of `StreamModel` objects into a JSON string
   static String encode(List<StreamModel> streams) {
