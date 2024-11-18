@@ -22,11 +22,15 @@ class StreamProvider with ChangeNotifier {
         return StreamModel.fromFirestore(doc.data(), doc.id);
       }).toList();
 
+      // Clear and initialize controllers for new streams
+      _disposeControllers();
       controllers = List<VlcPlayerController?>.filled(
         streams.length,
         null,
         growable: false,
       );
+
+      debugPrint("Streams loaded successfully. Total: ${streams.length}");
     } catch (e) {
       debugPrint("Error loading streams: $e");
     }
@@ -38,22 +42,38 @@ class StreamProvider with ChangeNotifier {
   /// Initialize a controller when needed
   Future<VlcPlayerController> initializeController(String url) async {
     try {
+      // Check if a controller already exists for this URL
+      final existingIndex = streams.indexWhere((stream) => stream.url == url);
+      if (existingIndex != -1 && controllers[existingIndex] != null) {
+        final existingController = controllers[existingIndex];
+        if (existingController != null &&
+            existingController.value.isInitialized) {
+          return existingController;
+        }
+      }
+
+      // Create a new controller
       final controller = VlcPlayerController.network(
         url,
         hwAcc: HwAcc.full,
-        autoPlay: true,
+        autoPlay: false,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            '--network-caching=150',
-            '--file-caching=150',
-            '--live-caching=150',
+            '--network-caching=300',
+            '--rtsp-tcp',
           ]),
         ),
       );
+
+      await controller.initialize();
+      if (existingIndex != -1) {
+        controllers[existingIndex] = controller;
+      }
+
       return controller;
     } catch (e) {
       debugPrint("Error initializing VLC Controller: $e");
-      throw Exception("Failed to initialize the stream. Check the URL.");
+      throw Exception("Failed to initialize stream. Please check the URL.");
     }
   }
 
@@ -61,11 +81,17 @@ class StreamProvider with ChangeNotifier {
   Future<void> deleteStream(int index) async {
     try {
       final streamId = streams[index].id;
+
+      // Delete from Firestore
       await _firestore.collection('cameraStreams').doc(streamId).delete();
+
+      // Dispose of the controller and update lists
       controllers[index]?.dispose();
       controllers.removeAt(index);
       streams.removeAt(index);
-      notifyListeners(); // Notify listeners to refresh the UI
+
+      notifyListeners();
+      debugPrint("Stream deleted successfully. ID: $streamId");
     } catch (e) {
       debugPrint("Error deleting stream: $e");
       throw Exception("Failed to delete the stream. Please try again.");
@@ -79,10 +105,24 @@ class StreamProvider with ChangeNotifier {
   }
 
   /// Dispose all VLC controllers
-  void disposeControllers() {
+  void _disposeControllers() {
     for (var controller in controllers) {
-      controller?.dispose();
+      if (controller != null && controller.value.isInitialized) {
+        try {
+          controller.stop();
+          controller.dispose();
+        } catch (e) {
+          debugPrint("Error disposing controller: $e");
+        }
+      }
     }
     controllers.clear();
+    debugPrint("All controllers disposed.");
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    super.dispose();
   }
 }

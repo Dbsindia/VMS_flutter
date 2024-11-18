@@ -4,7 +4,10 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 class MobileScannerScreen extends StatelessWidget {
   final Function(String?) onDetect;
 
-  const MobileScannerScreen({required this.onDetect, super.key});
+  const MobileScannerScreen({
+    required this.onDetect,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,14 +17,13 @@ class MobileScannerScreen extends StatelessWidget {
         onDetect: (BarcodeCapture barcode) {
           final String? code = barcode.barcodes.first.rawValue;
 
-          if (code != null) {
-            // Pass the result back to the parent widget
-            onDetect(code);
+          // Pass the detected code to the parent widget via `onDetect`
+          onDetect(code);
 
-            // Navigate back after detection
+          // Navigate back after detection
+          if (code != null) {
             Navigator.pop(context);
           } else {
-            // Handle cases where the QR code might not have valid data
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Invalid QR Code detected.')),
             );

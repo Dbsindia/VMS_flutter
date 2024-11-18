@@ -17,151 +17,143 @@ class FullScreenView extends StatefulWidget {
 }
 
 class _FullScreenViewState extends State<FullScreenView> {
+  bool isLoading = true;
+  bool hasError = false;
   bool isLive = true;
+  late VoidCallback _controllerListener;
 
   @override
-  void dispose() {
-    widget.controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _controllerListener = _onControllerUpdate;
+    widget.controller.addListener(_controllerListener);
+    _initializeStream();
   }
 
-  void handleIconAction(int index) {
-    if (isLive) {
-      switch (index) {
-        case 0:
-          // Start/Stop video recording
-          showFeedback("Recording started");
-          break;
-        case 1:
-          // Enable/Disable mic
-          showFeedback("Mic enabled");
-          break;
-        case 2:
-          // Take a snapshot
-          showFeedback("Snapshot taken");
-          break;
-        case 3:
-          // Change resolution
-          showFeedback("Resolution changed to HD");
-          break;
-        case 4:
-          // Adjust volume
-          showFeedback("Volume adjusted");
-          break;
-        default:
-          break;
-      }
-    } else {
-      switch (index) {
-        case 0:
-          // Show calendar for selecting date
-          showFeedback("Calendar opened");
-          break;
-        case 1:
-          // Open video library
-          showFeedback("Video library opened");
-          break;
-        case 2:
-          // Download playback
-          showFeedback("Download started");
-          break;
-        default:
-          break;
-      }
+  /// Listener to monitor the VLC Player Controller state
+  void _onControllerUpdate() {
+    if (widget.controller.value.hasError) {
+      debugPrint("VLC Error: ${widget.controller.value.errorDescription}");
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+    } else if (widget.controller.value.isInitialized && isLoading) {
+      setState(() {
+        isLoading = false;
+        hasError = false;
+      });
     }
   }
 
-  void showFeedback(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+  /// Initialize the VLC Player Controller
+  Future<void> _initializeStream() async {
+    try {
+      if (!widget.controller.value.isInitialized) {
+        await widget.controller.initialize();
+      }
+      widget.controller.play();
+      setState(() {
+        isLoading = false;
+        hasError = false;
+      });
+    } catch (e) {
+      debugPrint("Error initializing VLC Controller: $e");
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_controllerListener);
+    widget.controller.stop();
+    // Do not dispose the controller here as it is reused by the provider
+    super.dispose();
+  }
+
+  /// Error view to display if the VLC Player fails to load
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 50, color: Colors.red),
+          const SizedBox(height: 16),
+          const Text(
+            "Failed to load stream.",
+            style: TextStyle(fontSize: 18, color: Colors.red),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                isLoading = true;
+                hasError = false;
+              });
+              _initializeStream();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text("Retry"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLivePlaybackToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: () => setState(() => isLive = true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isLive ? Colors.deepPurple : Colors.grey,
+          ),
+          child: const Text("Live"),
+        ),
+        const SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: () => setState(() => isLive = false),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: !isLive ? Colors.deepPurple : Colors.grey,
+          ),
+          child: const Text("Playback"),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final liveIcons = [
-      Icons.videocam,
-      Icons.mic,
-      Icons.photo_camera,
-      Icons.hd,
-      Icons.volume_up,
-    ];
-    final playbackIcons = [
-      Icons.calendar_today,
-      Icons.video_library,
-      Icons.download,
-    ];
-
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(widget.stream.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _initializeStream,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // VLC Player for streaming video
           Expanded(
-            child: widget.controller.value.isInitialized
-                ? VlcPlayer(
-                    controller: widget.controller,
-                    aspectRatio: MediaQuery.of(context).size.aspectRatio,
-                    placeholder:
-                        const Center(child: CircularProgressIndicator()),
-                  )
-                : const Center(
-                    child: Text(
-                      "Stream failed to load.",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : hasError
+                    ? _buildErrorView()
+                    : VlcPlayer(
+                        controller: widget.controller,
+                        aspectRatio: MediaQuery.of(context).size.aspectRatio,
+                        placeholder: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
           ),
-
-          // Live/Playback toggle buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () => setState(() => isLive = true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isLive ? Colors.deepPurple : Colors.grey,
-                ),
-                child: const Text("Live"),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton(
-                onPressed: () => setState(() => isLive = false),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: !isLive ? Colors.deepPurple : Colors.grey,
-                ),
-                child: const Text("Playback"),
-              ),
-            ],
-          ),
-          // Action icons
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: GridView.builder(
-              shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 8.0,
-                crossAxisSpacing: 8.0,
-              ),
-              itemCount: isLive ? liveIcons.length : playbackIcons.length,
-              itemBuilder: (context, index) {
-                final icons = isLive ? liveIcons : playbackIcons;
-                return IconButton(
-                  icon: Icon(icons[index], color: Colors.deepPurple),
-                  onPressed: () => handleIconAction(index),
-                );
-              },
-            ),
-          ),
+          _buildLivePlaybackToggle(),
         ],
       ),
     );

@@ -4,7 +4,7 @@ class StreamModel {
   final String id;
   final String name;
   final String url;
-  final bool isOnline;
+  late final bool isOnline;
   final String? offlineTimestamp;
   final String? snapshotUrl;
 
