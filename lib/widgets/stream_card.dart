@@ -18,12 +18,21 @@ class StreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onCardTap,
+      onTap: stream.isOnline
+          ? onCardTap // Only allow tapping if the stream is online
+          : () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Stream is offline. Cannot open."),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
       child: Card(
-        elevation: 8.0,
+        elevation: 20.0,
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
+          borderRadius: BorderRadius.circular(26.0),
         ),
         child: Column(
           children: [
@@ -42,44 +51,76 @@ class StreamCard extends StatelessWidget {
                           ),
                         )
                       : const Center(
-                          child: Text("Snapshot unavailable"),
+                          child: Text(
+                            "Snapshot unavailable",
+                            style: TextStyle(color: Colors.black),
+                          ),
                         )
                   : Container(
-                      color: Colors.grey.shade300,
+                      color: Colors.black,
                       child: const Center(
                         child: Icon(Icons.error, size: 50, color: Colors.red),
                       ),
                     ),
             ),
-            const SizedBox(height: 8.0),
+            const SizedBox(height: 14.0),
             // Card Content with Online/Offline Status
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    stream.name,
-                    style: const TextStyle(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      stream.name,
+                      style: const TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow:
+                          TextOverflow.ellipsis, // Handle long stream names
                     ),
                   ),
                   stream.isOnline
                       ? const Chip(
-                          label: Text("Online",
-                              style: TextStyle(color: Colors.white)),
-                          backgroundColor: Colors.green,
+                          label: Text(
+                            "Online",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: Color.fromARGB(255, 67, 136, 68),
                         )
                       : const Chip(
-                          label: Text("Offline",
-                              style: TextStyle(color: Colors.white)),
+                          label: Text(
+                            "Offline",
+                            style: TextStyle(color: Colors.white),
+                          ),
                           backgroundColor: Colors.red,
                         ),
-                  // Delete Button
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: onDelete,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Delete Stream"),
+                          content: Text(
+                              "Are you sure you want to delete ${stream.name}?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                onDelete(); // Trigger the delete functionality
+                              },
+                              child: const Text("Delete"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -94,6 +135,9 @@ class StreamCard extends StatelessWidget {
                   onPressed: onOfflineAssistance,
                   icon: const Icon(Icons.help_outline),
                   label: const Text("Offline Assistance"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                  ),
                 ),
               ),
           ],

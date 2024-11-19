@@ -19,18 +19,26 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStreamsOnInit();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStreamsOnInit();
+    });
   }
 
-  /// Automatically load streams when the screen is initialized
   Future<void> _loadStreamsOnInit() async {
-    final streamProvider = Provider.of<custom_stream_provider.StreamProvider>(
+    try {
+      final streamProvider = Provider.of<custom_stream_provider.StreamProvider>(
         context,
-        listen: false);
-    await streamProvider.loadStreams();
+        listen: false,
+      );
+      await streamProvider.loadStreams();
+    } catch (e) {
+      debugPrint("Error loading streams during init: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load streams on init.")),
+      );
+    }
   }
 
-  /// Open the modal for camera-adding options
   void _openAddCameraOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -46,7 +54,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                   const Icon(Icons.qr_code_scanner, color: Colors.deepPurple),
               title: const Text("Scan QR Code"),
               onTap: () {
-                Navigator.pop(context); // Close the modal
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -121,23 +129,26 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
       appBar: AppBar(
         title: const Text("My Streams"),
         actions: [
-          // Refresh Button
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () async {
-              await streamProvider.loadStreams();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Streams refreshed.")),
-              );
+              try {
+                await streamProvider.loadStreams();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Streams refreshed.")),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Failed to refresh streams: $e")),
+                );
+              }
             },
           ),
-          // Add Camera Button
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: "Add Camera",
             onPressed: () => _openAddCameraOptions(context),
           ),
-          // Grid Layout Selector
           PopupMenuButton<int>(
             icon: const Icon(Icons.grid_view),
             tooltip: "Change Layout",
@@ -192,6 +203,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                             try {
                               final controller = await streamProvider
                                   .initializeController(stream.url);
+                              if (!mounted) return;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

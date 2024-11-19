@@ -20,33 +20,13 @@ class _FullScreenViewState extends State<FullScreenView> {
   bool isLoading = true;
   bool hasError = false;
   bool isLive = true;
-  late VoidCallback _controllerListener;
 
   @override
   void initState() {
     super.initState();
-    _controllerListener = _onControllerUpdate;
-    widget.controller.addListener(_controllerListener);
     _initializeStream();
   }
 
-  /// Listener to monitor the VLC Player Controller state
-  void _onControllerUpdate() {
-    if (widget.controller.value.hasError) {
-      debugPrint("VLC Error: ${widget.controller.value.errorDescription}");
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
-    } else if (widget.controller.value.isInitialized && isLoading) {
-      setState(() {
-        isLoading = false;
-        hasError = false;
-      });
-    }
-  }
-
-  /// Initialize the VLC Player Controller
   Future<void> _initializeStream() async {
     try {
       if (!widget.controller.value.isInitialized) {
@@ -68,13 +48,11 @@ class _FullScreenViewState extends State<FullScreenView> {
 
   @override
   void dispose() {
-    widget.controller.removeListener(_controllerListener);
     widget.controller.stop();
-    // Do not dispose the controller here as it is reused by the provider
+    widget.controller.removeListener(() {});
     super.dispose();
   }
 
-  /// Error view to display if the VLC Player fails to load
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -97,6 +75,9 @@ class _FullScreenViewState extends State<FullScreenView> {
             },
             icon: const Icon(Icons.refresh),
             label: const Text("Retry"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+            ),
           ),
         ],
       ),
@@ -108,7 +89,10 @@ class _FullScreenViewState extends State<FullScreenView> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ElevatedButton(
-          onPressed: () => setState(() => isLive = true),
+          onPressed: () {
+            setState(() => isLive = true);
+            widget.controller.play();
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: isLive ? Colors.deepPurple : Colors.grey,
           ),
@@ -116,7 +100,10 @@ class _FullScreenViewState extends State<FullScreenView> {
         ),
         const SizedBox(width: 10),
         ElevatedButton(
-          onPressed: () => setState(() => isLive = false),
+          onPressed: () {
+            setState(() => isLive = false);
+            widget.controller.pause();
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: !isLive ? Colors.deepPurple : Colors.grey,
           ),
@@ -131,6 +118,7 @@ class _FullScreenViewState extends State<FullScreenView> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.stream.name),
+        backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -153,7 +141,9 @@ class _FullScreenViewState extends State<FullScreenView> {
                         ),
                       ),
           ),
+          const SizedBox(height: 10),
           _buildLivePlaybackToggle(),
+          const SizedBox(height: 10),
         ],
       ),
     );
