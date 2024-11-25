@@ -200,10 +200,19 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                             );
                           },
                           onCardTap: () async {
+                            if (!stream.isValidUrl) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text("Invalid stream URL.")),
+                              );
+                              return;
+                            }
+
                             try {
                               final controller = await streamProvider
                                   .initializeController(stream.url);
                               if (!mounted) return;
+
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

@@ -107,13 +107,24 @@ class StreamCard extends StatelessWidget {
                               "Are you sure you want to delete ${stream.name}?"),
                           actions: [
                             TextButton(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () =>
+                                  Navigator.pop(context), // Close the dialog
                               child: const Text("Cancel"),
                             ),
                             TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                onDelete(); // Trigger the delete functionality
+                              onPressed: () async {
+                                Navigator.pop(context); // Close the dialog
+                                try {
+                                  onDelete();
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text("Failed to delete stream: $e"),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               },
                               child: const Text("Delete"),
                             ),
@@ -121,7 +132,7 @@ class StreamCard extends StatelessWidget {
                         ),
                       );
                     },
-                  ),
+                  )
                 ],
               ),
             ),

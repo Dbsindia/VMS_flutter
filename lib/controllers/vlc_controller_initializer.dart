@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 
 class VlcControllerInitializer {
@@ -5,9 +6,10 @@ class VlcControllerInitializer {
   static Future<List<VlcPlayerController>> initialize(
     List<String> urls, {
     required Map<String, String> options, // VLC advanced options
-    bool autoPlay = true,                // Optional: AutoPlay flag
-    HwAcc hwAcc = HwAcc.full,            // Optional: Hardware acceleration
-    int retryCount = 3,                  // Number of retries for initialization
+    bool autoPlay = true, // Optional: AutoPlay flag
+    HwAcc hwAcc = HwAcc.full, // Optional: Hardware acceleration
+    int retryCount = 3, // Number of retries for initialization
+    Duration retryDelay = const Duration(seconds: 2), // Delay between retries
   }) async {
     List<VlcPlayerController> controllers = [];
 
@@ -19,11 +21,12 @@ class VlcControllerInitializer {
           autoPlay: autoPlay,
           hwAcc: hwAcc,
           retryCount: retryCount,
+          retryDelay: retryDelay,
         );
         controllers.add(controller);
-        print("Controller initialized for URL: $url");
+        debugPrint("Controller initialized for URL: $url");
       } catch (e) {
-        print("Failed to initialize controller for URL: $url. Error: $e");
+        debugPrint("Failed to initialize controller for URL: $url. Error: $e");
       }
     }
 
@@ -34,9 +37,10 @@ class VlcControllerInitializer {
   static Future<VlcPlayerController> initializeSingle(
     String url, {
     required Map<String, String> options, // VLC advanced options
-    bool autoPlay = true,                // Optional: AutoPlay flag
-    HwAcc hwAcc = HwAcc.full,            // Optional: Hardware acceleration
-    int retryCount = 3,                  // Number of retries for initialization
+    bool autoPlay = true, // Optional: AutoPlay flag
+    HwAcc hwAcc = HwAcc.full, // Optional: Hardware acceleration
+    int retryCount = 3, // Number of retries for initialization
+    Duration retryDelay = const Duration(seconds: 2), // Delay between retries
   }) async {
     return await _initializeWithRetries(
       url,
@@ -44,6 +48,7 @@ class VlcControllerInitializer {
       autoPlay: autoPlay,
       hwAcc: hwAcc,
       retryCount: retryCount,
+      retryDelay: retryDelay,
     );
   }
 
@@ -54,44 +59,68 @@ class VlcControllerInitializer {
     bool autoPlay = true,
     HwAcc hwAcc = HwAcc.full,
     int retryCount = 3,
+    Duration retryDelay = const Duration(seconds: 2),
   }) async {
-    VlcPlayerController? controller;
-    for (int attempt = 0; attempt < retryCount; attempt++) {
+    if (url.isEmpty ||
+        !(url.startsWith('rtsp://') ||
+            url.startsWith('http://') ||
+            url.startsWith('https://'))) {
+      throw Exception("Invalid URL format: $url");
+    }
+
+    for (int attempt = 1; attempt <= retryCount; attempt++) {
       try {
-        controller = VlcPlayerController.network(
+        debugPrint(
+            "Initializing VLC controller for URL: $url (Attempt $attempt/$retryCount)");
+        final controller = VlcPlayerController.network(
           url,
           hwAcc: hwAcc,
           autoPlay: autoPlay,
           options: VlcPlayerOptions(
-            advanced: VlcAdvancedOptions(
-              options.entries.map((entry) => '--${entry.key}=${entry.value}').toList(),
-            ),
+            advanced: VlcAdvancedOptions([
+              '--network-caching=500', // Caching duration
+              '--rtsp-tcp', // Use TCP for RTSP
+              '--no-stats', // Disable stats
+              '--drop-late-frames', // Drop late frames for smoother playback
+              '--skip-frames', // Skip frames to maintain sync
+            ]),
           ),
         );
+
+        // Debugging for controller state
+        controller.addListener(() {
+          debugPrint("Controller state: ${controller.value}");
+        });
+
         await controller.initialize();
-        print("Successfully initialized controller for URL: $url on attempt $attempt");
+        debugPrint(
+            "Successfully initialized controller for URL: $url on attempt $attempt");
         return controller;
       } catch (e) {
-        print("Attempt $attempt failed for URL: $url. Error: $e");
+        debugPrint("Attempt $attempt failed for URL: $url. Error: $e");
+        if (attempt < retryCount) {
+          await Future.delayed(retryDelay * attempt); // Exponential backoff
+        }
       }
     }
 
-    throw Exception("Failed to initialize VLC Player controller for URL: $url after $retryCount attempts.");
+    throw Exception(
+        "Failed to initialize VLC Player controller for URL: $url after $retryCount attempts.");
   }
 
   /// Disposes all controllers gracefully to free resources
   static void disposeControllers(List<VlcPlayerController> controllers) {
     for (var controller in controllers) {
-      if (controller.value.isInitialized) {
-        try {
-          controller.stop(); // Stop any ongoing playback
+      try {
+        if (controller.value.isInitialized) {
+          controller.stop();
           controller.dispose();
-          print("Controller disposed successfully.");
-        } catch (e) {
-          print("Error disposing controller: $e");
+          debugPrint("Controller disposed successfully.");
+        } else {
+          debugPrint("Controller is not initialized. Skipping disposal.");
         }
-      } else {
-        print("Controller is not initialized. Skipping disposal.");
+      } catch (e) {
+        debugPrint("Error disposing controller: $e");
       }
     }
   }

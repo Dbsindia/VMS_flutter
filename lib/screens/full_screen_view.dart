@@ -24,12 +24,36 @@ class _FullScreenViewState extends State<FullScreenView> {
   @override
   void initState() {
     super.initState();
+    debugPrint("Initializing VLC controller for stream: ${widget.stream.url}");
+    widget.controller.addListener(_controllerListener);
     _initializeStream();
   }
 
+  /// Listens to VLC controller state and updates UI accordingly
+  void _controllerListener() {
+    final controllerState = widget.controller.value;
+    debugPrint("VLC Controller State: $controllerState");
+
+    // Handle errors or update UI based on controller state
+    if (controllerState.hasError) {
+      debugPrint("VLC Error: ${controllerState.errorDescription}");
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+    } else if (controllerState.isInitialized && isLoading) {
+      setState(() {
+        isLoading = false;
+        hasError = false;
+      });
+    }
+  }
+
+  /// Initializes the VLC Player Controller
   Future<void> _initializeStream() async {
     try {
       if (!widget.controller.value.isInitialized) {
+        debugPrint("Initializing VLC Player...");
         await widget.controller.initialize();
       }
       widget.controller.play();
@@ -48,11 +72,13 @@ class _FullScreenViewState extends State<FullScreenView> {
 
   @override
   void dispose() {
+    debugPrint("Disposing FullScreenView...");
+    widget.controller.removeListener(_controllerListener);
     widget.controller.stop();
-    widget.controller.removeListener(() {});
     super.dispose();
   }
 
+  /// Builds a UI to display in case of errors
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -84,6 +110,7 @@ class _FullScreenViewState extends State<FullScreenView> {
     );
   }
 
+  /// Builds live/playback toggle buttons
   Widget _buildLivePlaybackToggle() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
