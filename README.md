@@ -5,7 +5,7 @@ Camera Streaming Application for Endroid USA
 ## Getting Started
 
 This project is a starting point for a Flutter application.
-
+Debug
 ### Resources
 
 - [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
