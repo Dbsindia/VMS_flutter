@@ -26,36 +26,55 @@ class _FullScreenViewState extends State<FullScreenView> {
     super.initState();
     debugPrint("Initializing VLC controller for stream: ${widget.stream.url}");
     widget.controller.addListener(_controllerListener);
-    _initializeStream();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeStream());
   }
 
-  /// Listens to VLC controller state and updates UI accordingly
+  /// Listener for VLC controller state changes
   void _controllerListener() {
     final controllerState = widget.controller.value;
     debugPrint("VLC Controller State: $controllerState");
 
-    // Handle errors or update UI based on controller state
     if (controllerState.hasError) {
       debugPrint("VLC Error: ${controllerState.errorDescription}");
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          hasError = true;
+        });
+      }
     } else if (controllerState.isInitialized && isLoading) {
-      setState(() {
-        isLoading = false;
-        hasError = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          hasError = false;
+        });
+      }
     }
   }
 
   /// Initializes the VLC Player Controller
   Future<void> _initializeStream() async {
+    if (!widget.stream.isValidUrl) {
+      debugPrint("Invalid RTSP URL: ${widget.stream.url}");
+      _showSnackBar("Invalid RTSP URL provided.");
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      hasError = false;
+    });
+
     try {
       if (!widget.controller.value.isInitialized) {
         debugPrint("Initializing VLC Player...");
         await widget.controller.initialize();
       }
+
       widget.controller.play();
       setState(() {
         isLoading = false;
@@ -63,11 +82,22 @@ class _FullScreenViewState extends State<FullScreenView> {
       });
     } catch (e) {
       debugPrint("Error initializing VLC Controller: $e");
+      _showSnackBar("Failed to initialize stream. Please try again.");
       setState(() {
         isLoading = false;
         hasError = true;
       });
     }
+  }
+
+  /// Shows a snackbar with a custom message
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -78,7 +108,7 @@ class _FullScreenViewState extends State<FullScreenView> {
     super.dispose();
   }
 
-  /// Builds a UI to display in case of errors
+  /// Builds the error view when a stream fails to load
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -93,14 +123,19 @@ class _FullScreenViewState extends State<FullScreenView> {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () {
-              setState(() {
-                isLoading = true;
-                hasError = false;
-              });
-              _initializeStream();
+              if (mounted) {
+                setState(() {
+                  isLoading = true;
+                  hasError = false;
+                });
+                _initializeStream();
+              }
             },
-            icon: const Icon(Icons.refresh),
-            label: const Text("Retry"),
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            label: const Text(
+              "Retry",
+              style: TextStyle(color: Colors.white),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
             ),
@@ -110,16 +145,20 @@ class _FullScreenViewState extends State<FullScreenView> {
     );
   }
 
-  /// Builds live/playback toggle buttons
+  /// Builds the live/playback toggle buttons
   Widget _buildLivePlaybackToggle() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ElevatedButton(
-          onPressed: () {
-            setState(() => isLive = true);
-            widget.controller.play();
-          },
+          onPressed: isLoading
+              ? null
+              : () {
+                  if (mounted) {
+                    setState(() => isLive = true);
+                    widget.controller.play();
+                  }
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: isLive ? Colors.deepPurple : Colors.grey,
           ),
@@ -127,10 +166,14 @@ class _FullScreenViewState extends State<FullScreenView> {
         ),
         const SizedBox(width: 10),
         ElevatedButton(
-          onPressed: () {
-            setState(() => isLive = false);
-            widget.controller.pause();
-          },
+          onPressed: isLoading
+              ? null
+              : () {
+                  if (mounted) {
+                    setState(() => isLive = false);
+                    widget.controller.pause();
+                  }
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: !isLive ? Colors.deepPurple : Colors.grey,
           ),

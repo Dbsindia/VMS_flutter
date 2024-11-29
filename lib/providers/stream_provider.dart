@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/stream_model.dart';
+import 'package:easy_onvif/onvif.dart';
+import 'package:ping_discover_network_forked/ping_discover_network_forked.dart';
+import '../services/firebase_service.dart';
 
 class StreamProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,78 +14,191 @@ class StreamProvider with ChangeNotifier {
   List<VlcPlayerController?> controllers = [];
   bool isLoading = false;
   int gridCount = 1; // Default layout: 1x1
+  Onvif? onvif;
 
-  /// Load streams from Firestore
-  Future<void> loadStreams() async {
-    isLoading = true;
-    notifyListeners();
-
+  /// Initialize ONVIF with credentials
+  Future<void> initializeOnvif({
+    required String host,
+    required String username,
+    required String password,
+  }) async {
     try {
-      final snapshot = await _firestore.collection('cameraStreams').get();
+      onvif = await Onvif.connect(
+        host: host,
+        username: username,
+        password: password,
+      );
+      debugPrint("ONVIF initialized for $host");
+    } catch (e) {
+      debugPrint("Failed to initialize ONVIF: $e");
+      throw Exception("Failed to initialize ONVIF for host $host");
+    }
+  }
+
+  /// Load streams with a real-time listener
+  void loadStreams() {
+    _firestore.collection('cameraStreams').snapshots().listen((snapshot) {
       streams = snapshot.docs.map((doc) {
         return StreamModel.fromFirestore(doc.data(), doc.id);
       }).toList();
 
-      // Dispose old controllers and create placeholders for new ones
-      disposeControllers();
-      controllers = List<VlcPlayerController?>.filled(
-        streams.length,
-        null,
-      ).toList(); // Convert to a growable list
+      _syncControllersWithStreams();
+      notifyListeners();
+    });
 
-      debugPrint("Streams loaded successfully: ${streams.length}");
+    isLoading = false;
+    notifyListeners();
+  }
+
+  /// Sync controllers with streams to avoid mismatches
+  void _syncControllersWithStreams() {
+    while (controllers.length > streams.length) {
+      final controller = controllers.removeLast();
+      controller?.stop();
+      controller?.dispose();
+    }
+    while (controllers.length < streams.length) {
+      controllers.add(null);
+    }
+  }
+
+  /// Discover ONVIF devices and add them to the stream list
+  Future<void> discoverCameras(
+      String subnet, int port, String username, String password) async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final discoveredDevices = await _discoverDevices(subnet, port);
+
+      for (final ip in discoveredDevices) {
+        try {
+          await initializeOnvif(
+            host: ip,
+            username: username,
+            password: password,
+          );
+
+          // Fetch RTSP URL and Snapshot URL
+          final rtspUrl = await _fetchRtspUrl();
+          final snapshotUrl = await _fetchSnapshotUrl();
+
+          if (rtspUrl == null || !rtspUrl.startsWith('rtsp://')) {
+            debugPrint("Invalid RTSP URL for device at $ip");
+            continue;
+          }
+
+          final newStream = StreamModel(
+            id: '', // Firestore will assign the ID
+            name: 'Discovered Device ($ip)',
+            url: rtspUrl,
+            snapshotUrl: snapshotUrl ?? '',
+            isOnline: true,
+            createdAt: DateTime.now(),
+          );
+
+          // Save to Firestore
+          await _firestore.collection('cameraStreams').add(newStream.toJson());
+        } catch (e) {
+          debugPrint("Error discovering device at $ip: $e");
+        }
+      }
     } catch (e) {
-      debugPrint("Error loading streams: $e");
+      debugPrint("Error during discovery: $e");
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
+  /// Discover devices using ping_discover_network
+  Future<List<String>> _discoverDevices(String subnet, int port) async {
+    final List<String> devices = [];
+    final stream = NetworkAnalyzer.discover2(subnet, port);
+
+    await for (final addr in stream) {
+      if (addr.exists) {
+        devices.add(addr.ip);
+        debugPrint('Discovered device: ${addr.ip}');
+      }
+    }
+    return devices;
+  }
+
+  /// Fetch RTSP URL using ONVIF
+  Future<String?> _fetchRtspUrl() async {
+    try {
+      if (onvif == null) {
+        throw Exception(
+            "ONVIF is not initialized. Call initializeOnvif first.");
+      }
+
+      final profiles = await onvif!.media.getProfiles();
+      if (profiles.isNotEmpty) {
+        return await onvif!.media.getStreamUri(profiles.first.token);
+      }
+    } catch (e) {
+      debugPrint("Error fetching RTSP URL: $e");
+    }
+    return null;
+  }
+
+  Future<String?> _fetchSnapshotUrl() async {
+    try {
+      if (onvif == null) {
+        throw Exception(
+            "ONVIF is not initialized. Call initializeOnvif first.");
+      }
+
+      final profiles = await onvif!.media.getProfiles();
+      if (profiles.isNotEmpty) {
+        return await onvif!.media.getSnapshotUri(profiles.first.token);
+      }
+    } catch (e) {
+      debugPrint("Error fetching Snapshot URL: $e");
+    }
+    return null;
+  }
+
   /// Initialize VLC Player Controller
   Future<VlcPlayerController> initializeController(String url) async {
-  if (url.isEmpty || !(url.startsWith('rtsp://') || url.startsWith('http://') || url.startsWith('https://'))) {
-    throw Exception("Invalid URL format: $url");
-  }
-
-  debugPrint("Initializing VLC controller for URL: $url");
-
-  final existingIndex = streams.indexWhere((stream) => stream.url == url);
-
-  // Reuse existing controller if it's already initialized
-  if (existingIndex != -1 && controllers[existingIndex] != null) {
-    final existingController = controllers[existingIndex];
-    if (existingController != null && existingController.value.isInitialized) {
-      debugPrint("Reusing existing controller for URL: $url");
-      return existingController;
-    }
-  }
-
-  // Initialize a new controller
-  try {
-    final controller = await VlcControllerInitializer.initializeSingle(
-      url,
-      options: {
-        'network-caching': '500',
-        'rtsp-tcp': '',
-      },
-    );
-
-    controller.addListener(() {
-      debugPrint("VLC Controller State for $url: ${controller.value}");
-    });
-
-    if (existingIndex != -1) {
-      controllers[existingIndex] = controller;
+    if (url.isEmpty || !url.startsWith('rtsp://')) {
+      throw Exception("Invalid RTSP URL: $url");
     }
 
-    return controller;
-  } catch (e) {
-    debugPrint("Error initializing VLC Controller for URL $url: $e");
-    throw Exception("Failed to initialize stream. Please check the URL.");
-  }
-}
+    final existingIndex = streams.indexWhere((stream) => stream.url == url);
 
+    // Reuse an existing controller if possible
+    if (existingIndex != -1 && controllers[existingIndex] != null) {
+      final existingController = controllers[existingIndex];
+      if (existingController != null &&
+          existingController.value.isInitialized) {
+        return existingController;
+      }
+    }
+
+    try {
+      final controller = await VlcControllerInitializer.initializeSingle(
+        url,
+        options: {
+          'network-caching': '1000',
+          'rtsp-tcp': '',
+        },
+      );
+
+      if (existingIndex != -1) {
+        controllers[existingIndex] = controller;
+      } else {
+        controllers.add(controller);
+      }
+
+      return controller;
+    } catch (e) {
+      debugPrint("Error initializing VLC Controller: $e");
+      throw Exception(
+          "Failed to initialize VLC Player for URL: $url. Error: $e");
+    }
+  }
 
   /// Delete a Stream
   Future<void> deleteStream(int index) async {
@@ -93,19 +209,10 @@ class StreamProvider with ChangeNotifier {
     try {
       final streamId = streams[index].id;
 
-      final documentSnapshot =
-          await _firestore.collection('cameraStreams').doc(streamId).get();
-
-      if (!documentSnapshot.exists) {
-        throw Exception("Stream does not exist in Firestore.");
-      }
-
       await _firestore.collection('cameraStreams').doc(streamId).delete();
 
-      if (controllers[index] != null) {
-        await controllers[index]?.stop();
-        controllers[index]?.dispose();
-      }
+      controllers[index]?.stop();
+      controllers[index]?.dispose();
 
       streams = List<StreamModel>.from(streams)..removeAt(index);
       controllers = List<VlcPlayerController?>.from(controllers)
@@ -113,6 +220,7 @@ class StreamProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
+      debugPrint("Error deleting stream: $e");
       throw Exception("Failed to delete stream. Reason: $e");
     }
   }
@@ -126,15 +234,10 @@ class StreamProvider with ChangeNotifier {
   /// Dispose All Controllers
   void disposeControllers() {
     for (var controller in controllers) {
-      try {
-        controller?.stop();
-        controller?.dispose();
-      } catch (e) {
-        debugPrint("Error disposing controller: $e");
-      }
+      controller?.stop();
+      controller?.dispose();
     }
     controllers.clear();
-    debugPrint("All controllers disposed.");
   }
 
   @override

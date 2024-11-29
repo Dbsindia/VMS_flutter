@@ -24,21 +24,31 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
     });
   }
 
+  /// Load streams from the provider during initialization
   Future<void> _loadStreamsOnInit() async {
     try {
       final streamProvider = Provider.of<custom_stream_provider.StreamProvider>(
         context,
         listen: false,
       );
-      await streamProvider.loadStreams();
+      streamProvider.loadStreams(); // Real-time listener
     } catch (e) {
       debugPrint("Error loading streams during init: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load streams on init.")),
-      );
+      _showSnackBar("Failed to load streams on init.");
     }
   }
 
+  /// Show a snackbar with the given message
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Open the camera options bottom sheet
   void _openAddCameraOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -61,13 +71,9 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                     builder: (context) => MobileScannerScreen(
                       onDetect: (String? code) {
                         if (code != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("QR Code Detected: $code")),
-                          );
+                          _showSnackBar("QR Code Detected: $code");
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Invalid QR Code")),
-                          );
+                          _showSnackBar("Invalid QR Code");
                         }
                       },
                     ),
@@ -133,14 +139,10 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: () async {
               try {
-                await streamProvider.loadStreams();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Streams refreshed.")),
-                );
+                streamProvider.loadStreams(); // Refresh using real-time updates
+                _showSnackBar("Streams refreshed.");
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Failed to refresh streams: $e")),
-                );
+                _showSnackBar("Failed to refresh streams: $e");
               }
             },
           ),
@@ -154,9 +156,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
             tooltip: "Change Layout",
             onSelected: (value) {
               streamProvider.updateGridLayout(value);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Layout changed to $value x $value")),
-              );
+              _showSnackBar("Layout changed to $value x $value");
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 1, child: Text("1x1 Layout")),
@@ -192,57 +192,45 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                         return StreamCard(
                           stream: stream,
                           onOfflineAssistance: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    "Check power supply and network cables."),
-                              ),
-                            );
+                            _showSnackBar(
+                                "Check power supply and network cables.");
                           },
-                          onCardTap: () async {
-                            if (!stream.isValidUrl) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text("Invalid stream URL.")),
-                              );
-                              return;
-                            }
+                         onCardDoubleTap: () async {
+  if (!stream.isValidUrl) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Invalid RTSP URL.")),
+    );
+    return;
+  }
 
-                            try {
-                              final controller = await streamProvider
-                                  .initializeController(stream.url);
-                              if (!mounted) return;
+  try {
+    final controller = await streamProvider.initializeController(stream.url);
+    if (!mounted) return;
 
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FullScreenView(
-                                    stream: stream,
-                                    controller: controller,
-                                  ),
-                                ),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text("Error: ${e.toString()}")),
-                              );
-                            }
-                          },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenView(
+          stream: stream,
+          controller: controller,
+        ),
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: ${e.toString()}")),
+    );
+  }
+},
+
                           onDelete: () async {
                             try {
                               await streamProvider.deleteStream(index);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        "${stream.name} deleted successfully.")),
-                              );
+                              _showSnackBar(
+                                  "${stream.name} deleted successfully.");
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        "Error deleting stream: ${e.toString()}")),
-                              );
+                              _showSnackBar(
+                                  "Error deleting stream: ${e.toString()}");
                             }
                           },
                         );

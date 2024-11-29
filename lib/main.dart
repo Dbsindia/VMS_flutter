@@ -19,7 +19,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => custom_stream_provider.StreamProvider(), // Use your custom StreamProvider
+      create: (_) => custom_stream_provider
+          .StreamProvider(), // Use your custom StreamProvider
       child: MaterialApp(
         title: 'Endroid Streaming',
         theme: ThemeData(primarySwatch: Colors.deepPurple),

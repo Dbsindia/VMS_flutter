@@ -54,59 +54,59 @@ class VlcControllerInitializer {
 
   /// Helper method to initialize a VLC Player controller with retries
   static Future<VlcPlayerController> _initializeWithRetries(
-    String url, {
-    required Map<String, String> options,
-    bool autoPlay = true,
-    HwAcc hwAcc = HwAcc.full,
-    int retryCount = 3,
-    Duration retryDelay = const Duration(seconds: 2),
-  }) async {
-    if (url.isEmpty ||
-        !(url.startsWith('rtsp://') ||
-            url.startsWith('http://') ||
-            url.startsWith('https://'))) {
-      throw Exception("Invalid URL format: $url");
-    }
+  String url, {
+  required Map<String, String> options,
+  bool autoPlay = true,
+  HwAcc hwAcc = HwAcc.full,
+  int retryCount = 3,
+  Duration retryDelay = const Duration(seconds: 2),
+}) async {
+  if (url.isEmpty || !(url.startsWith('rtsp://') || url.startsWith('http://'))) {
+    throw Exception("Invalid URL format: $url");
+  }
 
-    for (int attempt = 1; attempt <= retryCount; attempt++) {
-      try {
-        debugPrint(
-            "Initializing VLC controller for URL: $url (Attempt $attempt/$retryCount)");
-        final controller = VlcPlayerController.network(
-          url,
-          hwAcc: hwAcc,
-          autoPlay: autoPlay,
-          options: VlcPlayerOptions(
-            advanced: VlcAdvancedOptions([
-              '--network-caching=500', // Caching duration
-              '--rtsp-tcp', // Use TCP for RTSP
-              '--no-stats', // Disable stats
-              '--drop-late-frames', // Drop late frames for smoother playback
-              '--skip-frames', // Skip frames to maintain sync
-            ]),
-          ),
-        );
+  Exception? lastError;
 
-        // Debugging for controller state
-        controller.addListener(() {
-          debugPrint("Controller state: ${controller.value}");
-        });
+  for (int attempt = 1; attempt <= retryCount; attempt++) {
+    try {
+      debugPrint(
+          "Initializing VLC controller for URL: $url (Attempt $attempt/$retryCount)");
 
-        await controller.initialize();
-        debugPrint(
-            "Successfully initialized controller for URL: $url on attempt $attempt");
-        return controller;
-      } catch (e) {
-        debugPrint("Attempt $attempt failed for URL: $url. Error: $e");
-        if (attempt < retryCount) {
-          await Future.delayed(retryDelay * attempt); // Exponential backoff
-        }
+      await Future.delayed(const Duration(milliseconds: 100)); // Delay for widget rendering
+
+      final controller = VlcPlayerController.network(
+        url,
+        hwAcc: hwAcc,
+        autoPlay: autoPlay,
+        options: VlcPlayerOptions(
+          advanced: VlcAdvancedOptions([
+            '--network-caching=500',
+            '--rtsp-tcp',
+            '--no-stats',
+            '--drop-late-frames',
+            '--skip-frames',
+          ]),
+        ),
+      );
+
+      await controller.initialize();
+      debugPrint("Successfully initialized VLC controller for $url");
+      return controller;
+    } catch (e) {
+      debugPrint("Attempt $attempt failed for $url. Error: $e");
+      lastError = Exception("Initialization failed on attempt $attempt: $e");
+
+      if (attempt < retryCount) {
+        await Future.delayed(retryDelay * attempt);
       }
     }
-
-    throw Exception(
-        "Failed to initialize VLC Player controller for URL: $url after $retryCount attempts.");
   }
+
+  throw Exception(
+      "Failed to initialize VLC Player controller for URL: $url after $retryCount attempts. Last error: $lastError");
+}
+
+
 
   /// Disposes all controllers gracefully to free resources
   static void disposeControllers(List<VlcPlayerController> controllers) {
