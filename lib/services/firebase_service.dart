@@ -8,11 +8,13 @@ class FirebaseService {
   Future<List<StreamModel>> fetchCameraStreams() async {
     try {
       final snapshot = await _firestore.collection('cameraStreams').get();
-      return snapshot.docs.map((doc) {
-        return StreamModel.fromJson(doc.data(), doc.id); // Use document ID
+      final streams = snapshot.docs.map((doc) {
+        return StreamModel.fromJson(doc.data(), doc.id);
       }).toList();
+      print('Fetched ${streams.length} camera streams.');
+      return streams;
     } catch (e) {
-      print('Failed to fetch streams: $e'); // Debug log
+      print('Failed to fetch streams: $e');
       return [];
     }
   }
@@ -23,17 +25,19 @@ class FirebaseService {
     String name,
     String rtspUrl, {
     String? snapshotUrl,
-    bool isOnline = true, // Default to true for new cameras
+    bool isOnline = true,
   }) async {
     try {
-      await _firestore.collection('cameraStreams').doc(id).set({
+      final data = {
         'name': name,
         'rtspUrl': rtspUrl,
         'snapshotUrl': snapshotUrl,
         'isOnline': isOnline,
         'createdAt': FieldValue.serverTimestamp(),
-      });
-      print('Camera added: $name');
+      };
+
+      await _firestore.collection('cameraStreams').doc(id).set(data);
+      print('Camera added: $name with ID $id');
     } catch (e) {
       print('Failed to add camera: $e');
       throw Exception('Failed to add camera');
@@ -58,12 +62,12 @@ class FirebaseService {
 
       if (updatedData.isNotEmpty) {
         await _firestore.collection('cameraStreams').doc(documentId).update(updatedData);
-        print('Camera updated: $documentId'); // Debug log
+        print('Camera updated: $documentId with data: $updatedData');
       } else {
-        print('No fields to update for $documentId'); // Debug log
+        print('No fields provided for update on $documentId');
       }
     } catch (e) {
-      print('Failed to update camera: $e'); // Debug log
+      print('Failed to update camera: $e');
       throw Exception('Failed to update camera');
     }
   }
@@ -71,12 +75,12 @@ class FirebaseService {
   /// Deletes a camera stream from Firestore by document ID
   Future<void> deleteCameraStream(String documentId) async {
     try {
-      print("Deleting camera stream: $documentId");
+      print("Attempting to delete camera stream: $documentId");
       await _firestore.collection('cameraStreams').doc(documentId).delete();
       print("Camera stream deleted: $documentId");
     } catch (e) {
-      print("Failed to delete camera: $e"); // Debug log
-      throw Exception('Failed to delete camera');
+      print("Failed to delete camera stream: $e");
+      throw Exception('Failed to delete camera stream');
     }
   }
 
@@ -85,13 +89,15 @@ class FirebaseService {
     try {
       final doc = await _firestore.collection('cameraStreams').doc(documentId).get();
       if (doc.exists) {
-        return StreamModel.fromJson(doc.data()!, doc.id);
+        final stream = StreamModel.fromJson(doc.data()!, doc.id);
+        print('Fetched camera stream: $documentId');
+        return stream;
       } else {
-        print('Camera stream not found: $documentId'); // Debug log
+        print('Camera stream not found: $documentId');
         return null;
       }
     } catch (e) {
-      print('Failed to fetch camera stream: $e'); // Debug log
+      print('Failed to fetch camera stream: $e');
       return null;
     }
   }
@@ -99,28 +105,46 @@ class FirebaseService {
   /// Marks a camera stream as offline
   Future<void> markCameraAsOffline(String documentId) async {
     try {
-      await _firestore.collection('cameraStreams').doc(documentId).update({
+      final data = {
         'isOnline': false,
         'offlineTimestamp': FieldValue.serverTimestamp(),
-      });
+      };
+      await _firestore.collection('cameraStreams').doc(documentId).update(data);
       print("Camera marked as offline: $documentId");
     } catch (e) {
-      print("Failed to mark camera as offline: $e"); // Debug log
+      print("Failed to mark camera as offline: $e");
       throw Exception('Failed to mark camera as offline');
     }
   }
 
-  /// Restores a camera stream to online
+  /// Marks a camera stream as online
   Future<void> markCameraAsOnline(String documentId) async {
     try {
-      await _firestore.collection('cameraStreams').doc(documentId).update({
+      final data = {
         'isOnline': true,
         'offlineTimestamp': null,
-      });
+      };
+      await _firestore.collection('cameraStreams').doc(documentId).update(data);
       print("Camera marked as online: $documentId");
     } catch (e) {
-      print("Failed to mark camera as online: $e"); // Debug log
+      print("Failed to mark camera as online: $e");
       throw Exception('Failed to mark camera as online');
+    }
+  }
+
+  /// Validates if a given RTSP URL is valid and updates the `isOnline` status
+  Future<void> validateAndUpdateCameraStatus(String documentId, bool isOnline) async {
+    try {
+      final data = {
+        'isOnline': isOnline,
+        'offlineTimestamp': isOnline ? null : FieldValue.serverTimestamp(),
+      };
+
+      await _firestore.collection('cameraStreams').doc(documentId).update(data);
+      print("Camera $documentId validation updated: isOnline=$isOnline");
+    } catch (e) {
+      print("Failed to validate and update camera status: $e");
+      throw Exception('Failed to validate camera status');
     }
   }
 }

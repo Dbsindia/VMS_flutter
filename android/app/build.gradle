@@ -36,4 +36,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics' // Example Firebase dependency
     implementation 'com.google.firebase:firebase-firestore' // Firebase Firestore dependency
     implementation 'com.google.firebase:firebase-auth' // Firebase Authentication dependency
+    implementation 'com.google.android.gms:play-services-base:18.2.0'
+    implementation 'com.google.android.gms:play-services-auth:20.6.0'
 }
+
+
+
+

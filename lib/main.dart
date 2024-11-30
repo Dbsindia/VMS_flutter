@@ -1,4 +1,5 @@
 import 'package:endroid/screens/loginscreen.dart';
+import 'package:endroid/utils/google_play_services_util.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -21,11 +22,35 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => custom_stream_provider
           .StreamProvider(), // Use your custom StreamProvider
-      child: MaterialApp(
-        title: 'Endroid Streaming',
-        theme: ThemeData(primarySwatch: Colors.deepPurple),
-        home: const LoginScreen(),
-      ),
+      child: const MyAppRoot(),
+    );
+  }
+}
+
+class MyAppRoot extends StatefulWidget {
+  const MyAppRoot({super.key});
+
+  @override
+  State<MyAppRoot> createState() => _MyAppRootState();
+}
+
+class _MyAppRootState extends State<MyAppRoot> {
+  @override
+  void initState() {
+    super.initState();
+    _checkGooglePlayServices();
+  }
+
+  Future<void> _checkGooglePlayServices() async {
+    await ensureGooglePlayServices(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Endroid Streaming',
+      theme: ThemeData(primarySwatch: Colors.deepPurple),
+      home: const LoginScreen(),
     );
   }
 }

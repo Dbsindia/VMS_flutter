@@ -24,9 +24,10 @@ class _FullScreenViewState extends State<FullScreenView> {
   @override
   void initState() {
     super.initState();
-    debugPrint("Initializing VLC controller for stream: ${widget.stream.url}");
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeStream(); // Initialize stream after widget is built
+    });
     widget.controller.addListener(_controllerListener);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeStream());
   }
 
   /// Listener for VLC controller state changes
@@ -54,40 +55,39 @@ class _FullScreenViewState extends State<FullScreenView> {
 
   /// Initializes the VLC Player Controller
   Future<void> _initializeStream() async {
-    if (!widget.stream.isValidUrl) {
-      debugPrint("Invalid RTSP URL: ${widget.stream.url}");
-      _showSnackBar("Invalid RTSP URL provided.");
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
-      return;
-    }
-
     setState(() {
       isLoading = true;
       hasError = false;
     });
 
     try {
+      debugPrint("Initializing VLC Player...");
       if (!widget.controller.value.isInitialized) {
-        debugPrint("Initializing VLC Player...");
         await widget.controller.initialize();
       }
-
       widget.controller.play();
       setState(() {
         isLoading = false;
         hasError = false;
       });
     } catch (e) {
-      debugPrint("Error initializing VLC Controller: $e");
-      _showSnackBar("Failed to initialize stream. Please try again.");
+      debugPrint("Error initializing VLC Player: $e");
       setState(() {
         isLoading = false;
         hasError = true;
       });
     }
+  }
+
+  /// Refresh and retry initialization
+  Future<void> _retryStream() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        hasError = false;
+      });
+    }
+    await _initializeStream();
   }
 
   /// Shows a snackbar with a custom message
@@ -105,6 +105,7 @@ class _FullScreenViewState extends State<FullScreenView> {
     debugPrint("Disposing FullScreenView...");
     widget.controller.removeListener(_controllerListener);
     widget.controller.stop();
+    widget.controller.dispose(); // Dispose to free resources
     super.dispose();
   }
 
@@ -114,31 +115,13 @@ class _FullScreenViewState extends State<FullScreenView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 50, color: Colors.red),
+          const Icon(Icons.error, size: 50, color: Colors.red),
           const SizedBox(height: 16),
-          const Text(
-            "Failed to load stream.",
-            style: TextStyle(fontSize: 18, color: Colors.red),
-          ),
+          const Text("Failed to load stream."),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              if (mounted) {
-                setState(() {
-                  isLoading = true;
-                  hasError = false;
-                });
-                _initializeStream();
-              }
-            },
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            label: const Text(
-              "Retry",
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-            ),
+          ElevatedButton(
+            onPressed: _retryStream,
+            child: const Text("Retry"),
           ),
         ],
       ),
@@ -183,6 +166,27 @@ class _FullScreenViewState extends State<FullScreenView> {
     );
   }
 
+  /// Builds the stream status header
+  Widget _buildStreamStatusHeader() {
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      color: widget.stream.isOnline ? Colors.green : Colors.red,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            widget.stream.isOnline ? "Live" : "Offline",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,12 +196,13 @@ class _FullScreenViewState extends State<FullScreenView> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _initializeStream,
+            onPressed: _retryStream,
           ),
         ],
       ),
       body: Column(
         children: [
+          _buildStreamStatusHeader(),
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())

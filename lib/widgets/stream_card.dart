@@ -40,33 +40,48 @@ class StreamCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min, // Adjust height dynamically
           children: [
-            // Header Row: Stream Name and Actions
+            // Header Row: Stream Name, Status Dot, and Actions
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    stream.name,
-                    style: const TextStyle(
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.bold,
+                Row(
+                  children: [
+                    const SizedBox(width: 10),
+                    // Status Dot
+                    Icon(
+                      Icons.circle,
+                      color: stream.isOnline ? Colors.green : Colors.red,
+                      size: 12,
                     ),
-                    overflow: TextOverflow.ellipsis, // Handle long names
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.black),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Edit functionality is not implemented."),
+                    const SizedBox(width: 5),
+                    // Stream Name
+                    Text(
+                      stream.name,
+                      style: const TextStyle(
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
+                      overflow: TextOverflow.ellipsis, // Handle long names
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: onDelete,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.black),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Edit functionality is not implemented."),
+                          ),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: onDelete,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -80,8 +95,7 @@ class StreamCard extends StatelessWidget {
                   color: Colors.grey.shade200,
                 ),
                 child: stream.isOnline
-                    ? (stream.snapshotUrl != null &&
-                            stream.snapshotUrl!.startsWith('http'))
+                    ? (stream.isValidSnapshotUrl
                         ? ClipRRect(
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(16.0)),
@@ -105,7 +119,7 @@ class StreamCard extends StatelessWidget {
                               "Snapshot unavailable",
                               style: TextStyle(color: Colors.black),
                             ),
-                          )
+                          ))
                     : Container(
                         color: Colors.black,
                         child: const Center(

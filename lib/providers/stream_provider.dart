@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/stream_model.dart';
 import 'package:easy_onvif/onvif.dart';
 import 'package:ping_discover_network_forked/ping_discover_network_forked.dart';
-import '../services/firebase_service.dart';
 
 class StreamProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -160,45 +159,55 @@ class StreamProvider with ChangeNotifier {
     return null;
   }
 
+  /// Validate a stream by pinging the RTSP URL
+  Future<bool> _validateStream(StreamModel stream) async {
+    // Simulate validation logic (e.g., network ping)
+    return stream.isValidUrl;
+  }
+
+  /// Refresh the status of all streams
+  Future<void> refreshStreamStatus() async {
+    for (var stream in streams) {
+      final isValid = await _validateStream(stream);
+      final updatedStream = stream.updateOnlineStatus(isValid);
+
+      // Update Firestore with the new status
+      await _firestore
+          .collection('cameraStreams')
+          .doc(updatedStream.id)
+          .update(updatedStream.toJson());
+    }
+
+    notifyListeners();
+  }
+
   /// Initialize VLC Player Controller
   Future<VlcPlayerController> initializeController(String url) async {
+  try {
+    debugPrint("Initializing VLC Player with URL: $url");
+
+    // Ensure URL is valid before initializing
     if (url.isEmpty || !url.startsWith('rtsp://')) {
       throw Exception("Invalid RTSP URL: $url");
     }
 
-    final existingIndex = streams.indexWhere((stream) => stream.url == url);
+    // Create a new controller instance
+    final controller = VlcPlayerController.network(
+      url,
+      hwAcc: HwAcc.full,
+      autoPlay: true,
+      options: VlcPlayerOptions(),
+    );
 
-    // Reuse an existing controller if possible
-    if (existingIndex != -1 && controllers[existingIndex] != null) {
-      final existingController = controllers[existingIndex];
-      if (existingController != null &&
-          existingController.value.isInitialized) {
-        return existingController;
-      }
-    }
-
-    try {
-      final controller = await VlcControllerInitializer.initializeSingle(
-        url,
-        options: {
-          'network-caching': '1000',
-          'rtsp-tcp': '',
-        },
-      );
-
-      if (existingIndex != -1) {
-        controllers[existingIndex] = controller;
-      } else {
-        controllers.add(controller);
-      }
-
-      return controller;
-    } catch (e) {
-      debugPrint("Error initializing VLC Controller: $e");
-      throw Exception(
-          "Failed to initialize VLC Player for URL: $url. Error: $e");
-    }
+    // Wait for initialization
+    await controller.initialize();
+    return controller;
+  } catch (e) {
+    debugPrint("Failed to initialize VLC Player: $e");
+    throw Exception("Failed to initialize VLC Player: $e");
   }
+}
+
 
   /// Delete a Stream
   Future<void> deleteStream(int index) async {

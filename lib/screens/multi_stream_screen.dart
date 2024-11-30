@@ -1,6 +1,7 @@
 import 'package:endroid/screens/add_camera_screen.dart';
 import 'package:endroid/screens/bluetooth_devices_screen.dart';
 import 'package:endroid/screens/camera/mobile_scanner_screen.dart';
+import 'package:endroid/screens/mock/simple_vlc.dart';
 import 'package:endroid/screens/network_cameras_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -146,6 +147,19 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
               }
             },
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SimpleVlcPlayer(
+                    url: 'rtsp://192.168.1.18/live/0/MAIN',
+                  ),
+                ),
+              );
+            },
+            child: const Text("Test RTSP Stream"),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: "Add Camera",
@@ -195,34 +209,15 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                             _showSnackBar(
                                 "Check power supply and network cables.");
                           },
-                         onCardDoubleTap: () async {
-  if (!stream.isValidUrl) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Invalid RTSP URL.")),
-    );
-    return;
-  }
-
-  try {
-    final controller = await streamProvider.initializeController(stream.url);
-    if (!mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FullScreenView(
-          stream: stream,
-          controller: controller,
-        ),
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: ${e.toString()}")),
-    );
-  }
-},
-
+                          onCardDoubleTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    SimpleVlcPlayer(url: stream.url),
+                              ),
+                            );
+                          },
                           onDelete: () async {
                             try {
                               await streamProvider.deleteStream(index);
