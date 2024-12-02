@@ -1,4 +1,7 @@
+import 'package:endroid/screens/full_screen_view.dart';
+import 'package:endroid/screens/mock/simple_vlc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_vlc_player/flutter_vlc_player.dart'; // Import VLC Player
 import '../models/stream_model.dart';
 
 class StreamCard extends StatelessWidget {
@@ -21,16 +24,27 @@ class StreamCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return GestureDetector(
-      onDoubleTap: stream.isOnline
-          ? onCardDoubleTap // Open stream on double-tap if online
-          : () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Stream is offline. Cannot open."),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
+      onDoubleTap: () {
+        if (stream.isOnline) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SimpleVlcPlayer(
+                url: stream.url,
+                stream:
+                    stream, // Pass the stream for additional details if needed
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Stream is offline. Cannot open."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
       child: Card(
         elevation: 8.0,
         margin: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
@@ -72,7 +86,8 @@ class StreamCard extends StatelessWidget {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Edit functionality is not implemented."),
+                            content:
+                                Text("Edit functionality is not implemented."),
                           ),
                         );
                       },
@@ -100,9 +115,10 @@ class StreamCard extends StatelessWidget {
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(16.0)),
                             child: Image.network(
-                              stream.snapshotUrl!,
+                              stream.snapshotUrl,
                               fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return const Center(
                                   child: CircularProgressIndicator(),
@@ -123,8 +139,7 @@ class StreamCard extends StatelessWidget {
                     : Container(
                         color: Colors.black,
                         child: const Center(
-                          child:
-                              Icon(Icons.error, size: 50, color: Colors.red),
+                          child: Icon(Icons.error, size: 50, color: Colors.red),
                         ),
                       ),
               ),

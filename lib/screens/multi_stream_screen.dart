@@ -5,6 +5,7 @@ import 'package:endroid/screens/mock/simple_vlc.dart';
 import 'package:endroid/screens/network_cameras_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../providers/stream_provider.dart' as custom_stream_provider;
 import '../widgets/stream_card.dart';
 import 'full_screen_view.dart';
@@ -147,19 +148,19 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
               }
             },
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SimpleVlcPlayer(
-                    url: 'rtsp://192.168.1.18/live/0/MAIN',
-                  ),
-                ),
-              );
-            },
-            child: const Text("Test RTSP Stream"),
-          ),
+          // ElevatedButton(
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (context) => const SimpleVlcPlayer(
+          //           url: 'rtsp://192.168.1.18/live/0/MAIN',
+          //         ),
+          //       ),
+          //     );
+          //   },
+          //   child: const Text("Test RTSP Stream"),
+          // ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: "Add Camera",
@@ -195,39 +196,45 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                     return GridView.builder(
                       padding: const EdgeInsets.all(8.0),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridCount,
+                        crossAxisCount: streamProvider.gridCount,
                         mainAxisSpacing: 8.0,
                         crossAxisSpacing: 8.0,
-                        childAspectRatio: childAspectRatio,
+                        childAspectRatio: 1.5,
                       ),
                       itemCount: streamProvider.streams.length,
                       itemBuilder: (context, index) {
                         final stream = streamProvider.streams[index];
-                        return StreamCard(
-                          stream: stream,
-                          onOfflineAssistance: () {
-                            _showSnackBar(
-                                "Check power supply and network cables.");
+
+                        return VisibilityDetector(
+                          key: Key('stream-${stream.id}'),
+                          onVisibilityChanged: (visibilityInfo) {
+                            if (visibilityInfo.visibleFraction < 0.5) {
+                              debugPrint(
+                                  "Stream ${stream.id} is less than 50% visible.");
+                            }
                           },
-                          onCardDoubleTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    SimpleVlcPlayer(url: stream.url),
-                              ),
-                            );
-                          },
-                          onDelete: () async {
-                            try {
+                          child: StreamCard(
+                            stream: stream,
+                            onOfflineAssistance: () {
+                              _showSnackBar(
+                                  "Check power supply and network cables.");
+                            },
+                            onCardDoubleTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FullScreenView(
+                                    stream: stream,
+                                  ),
+                                ),
+                              );
+                            },
+                            onDelete: () async {
                               await streamProvider.deleteStream(index);
                               _showSnackBar(
                                   "${stream.name} deleted successfully.");
-                            } catch (e) {
-                              _showSnackBar(
-                                  "Error deleting stream: ${e.toString()}");
-                            }
-                          },
+                            },
+                          ),
                         );
                       },
                     );
