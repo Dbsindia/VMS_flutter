@@ -1,3 +1,4 @@
+import 'package:endroid/models/stream_model.dart';
 import 'package:endroid/screens/add_camera_screen.dart';
 import 'package:endroid/screens/bluetooth_devices_screen.dart';
 import 'package:endroid/screens/camera/mobile_scanner_screen.dart';
@@ -148,19 +149,28 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
               }
             },
           ),
-          // ElevatedButton(
-          //   onPressed: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (context) => const SimpleVlcPlayer(
-          //           url: 'rtsp://192.168.1.18/live/0/MAIN',
-          //         ),
-          //       ),
-          //     );
-          //   },
-          //   child: const Text("Test RTSP Stream"),
-          // ),
+          ElevatedButton(
+            onPressed: () {
+              final testStream = StreamModel(
+                id: 'test-id',
+                name: 'Test Stream',
+                url: 'rtsp://192.168.1.18/live/0/MAIN',
+                snapshotUrl: 'http://example.com/snapshot.jpg',
+                isOnline: true, createdAt: DateTime(2021),
+              );
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SimpleVlcPlayer(
+                    url: testStream.url,
+                    stream: testStream,
+                  ),
+                ),
+              );
+            },
+            child: const Text("Test RTSP Stream"),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: "Add Camera",
