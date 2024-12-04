@@ -156,7 +156,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                 name: 'Test Stream',
                 url: 'rtsp://192.168.1.18/live/0/MAIN',
                 snapshotUrl: 'http://example.com/snapshot.jpg',
-                isOnline: true, createdAt: DateTime(2021),
+                isOnline: true,
+                createdAt: DateTime(2021),
               );
 
               Navigator.push(
@@ -221,6 +222,7 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                             if (visibilityInfo.visibleFraction < 0.5) {
                               debugPrint(
                                   "Stream ${stream.id} is less than 50% visible.");
+                              // Optional: Pause or stop VLC playback
                             }
                           },
                           child: StreamCard(
@@ -233,9 +235,8 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => FullScreenView(
-                                    stream: stream,
-                                  ),
+                                  builder: (context) =>
+                                      FullScreenView(stream: stream),
                                 ),
                               );
                             },

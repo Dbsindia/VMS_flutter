@@ -36,9 +36,12 @@ class StreamProvider with ChangeNotifier {
 
   /// Load streams with a real-time listener
   void loadStreams() {
+    debugPrint("Loading streams...");
     _firestore.collection('cameraStreams').snapshots().listen((snapshot) {
       streams = snapshot.docs.map((doc) {
-        return StreamModel.fromFirestore(doc.data(), doc.id);
+        final stream = StreamModel.fromFirestore(doc.data(), doc.id);
+        debugPrint("Loaded stream: ${stream.name}, URL: ${stream.url}");
+        return stream;
       }).toList();
 
       _syncControllersWithStreams();
@@ -51,13 +54,10 @@ class StreamProvider with ChangeNotifier {
 
   /// Sync controllers with streams to avoid mismatches
   void _syncControllersWithStreams() {
-    while (controllers.length > streams.length) {
-      final controller = controllers.removeLast();
-      controller?.stop();
-      controller?.dispose();
-    }
-    while (controllers.length < streams.length) {
-      controllers.add(null);
+    for (var stream in streams) {
+      if (!stream.isValidUrl) {
+        debugPrint("Invalid RTSP URL for stream: ${stream.name}");
+      }
     }
   }
 
@@ -160,54 +160,75 @@ class StreamProvider with ChangeNotifier {
   }
 
   /// Validate a stream by pinging the RTSP URL
-  Future<bool> _validateStream(StreamModel stream) async {
-    // Simulate validation logic (e.g., network ping)
-    return stream.isValidUrl;
-  }
-
-  /// Refresh the status of all streams
-  Future<void> refreshStreamStatus() async {
-    for (var stream in streams) {
-      final isValid = await _validateStream(stream);
-      final updatedStream = stream.updateOnlineStatus(isValid);
-
-      // Update Firestore with the new status
-      await _firestore
-          .collection('cameraStreams')
-          .doc(updatedStream.id)
-          .update(updatedStream.toJson());
-    }
-
-    notifyListeners();
-  }
-
-  /// Initialize VLC Player Controller
-  Future<VlcPlayerController> initializeController(String url) async {
+ Future<bool> validateStream(StreamModel stream) async {
   try {
-    debugPrint("Initializing VLC Player with URL: $url");
-
-    // Ensure URL is valid before initializing
-    if (url.isEmpty || !url.startsWith('rtsp://')) {
-      throw Exception("Invalid RTSP URL: $url");
-    }
-
-    // Create a new controller instance
-    final controller = VlcPlayerController.network(
-      url,
-      hwAcc: HwAcc.full,
-      autoPlay: true,
-      options: VlcPlayerOptions(),
+    debugPrint("Validating stream URL: ${stream.url}");
+    final controller = await VlcControllerInitializer.initializeSingle(
+      stream.url,
+      options: {'--network-caching': '500', '--rtsp-tcp': ''},
     );
 
-    // Wait for initialization
-    await controller.initialize();
-    return controller;
+    controller.dispose(); // Dispose immediately after validation
+    debugPrint("Stream is valid: ${stream.name}");
+    return true;
   } catch (e) {
-    debugPrint("Failed to initialize VLC Player: $e");
-    throw Exception("Failed to initialize VLC Player: $e");
+    debugPrint("Stream validation failed: $e");
+    return false;
   }
 }
 
+Future<void> refreshStreams() async {
+  for (var stream in streams) {
+    final isValid = await validateStream(stream);
+    stream.isOnline = isValid;
+    debugPrint("Stream status updated: ${stream.name}, isOnline: $isValid");
+  }
+  notifyListeners();
+}
+
+
+  /// Refresh the status of all streams
+  // Future<void> refreshStreamStatus() async {
+  //   for (var stream in streams) {
+  //     final isValid = await _validateStream(stream);
+  //     final updatedStream = stream.updateOnlineStatus(isValid);
+
+  //     // Update Firestore with the new status
+  //     await _firestore
+  //         .collection('cameraStreams')
+  //         .doc(updatedStream.id)
+  //         .update(updatedStream.toJson());
+  //   }
+
+  //   notifyListeners();
+  // }
+
+  /// Initialize VLC Player Controller
+  Future<VlcPlayerController> initializeController(String url) async {
+    try {
+      debugPrint("Initializing VLC Player with URL: $url");
+
+      // Ensure URL is valid before initializing
+      if (url.isEmpty || !url.startsWith('rtsp://')) {
+        throw Exception("Invalid RTSP URL: $url");
+      }
+
+      // Create a new controller instance
+      final controller = VlcPlayerController.network(
+        url,
+        hwAcc: HwAcc.full,
+        autoPlay: true,
+        options: VlcPlayerOptions(),
+      );
+
+      // Wait for initialization
+      await controller.initialize();
+      return controller;
+    } catch (e) {
+      debugPrint("Failed to initialize VLC Player: $e");
+      throw Exception("Failed to initialize VLC Player: $e");
+    }
+  }
 
   /// Delete a Stream
   Future<void> deleteStream(int index) async {

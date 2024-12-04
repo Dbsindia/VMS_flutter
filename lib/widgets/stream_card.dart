@@ -26,14 +26,11 @@ class StreamCard extends StatelessWidget {
     return GestureDetector(
       onDoubleTap: () {
         if (stream.isOnline) {
+          debugPrint("Navigating to Full Screen for stream: ${stream.name}");
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FullScreenView(
-                // url: stream.url,
-                stream:
-                    stream, // Pass the stream for additional details if needed
-              ),
+              builder: (context) => FullScreenView(stream: stream),
             ),
           );
         } else {
@@ -103,47 +100,39 @@ class StreamCard extends StatelessWidget {
             // Stream Snapshot or Placeholder
             Expanded(
               child: Container(
-                height: screenHeight * 0.22, // Adjusted height for snapshot
-                width: screenWidth * 0.9,
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+                  borderRadius: BorderRadius.circular(16.0),
                   color: Colors.grey.shade200,
                 ),
                 child: stream.isOnline
                     ? (stream.isValidSnapshotUrl
                         ? ClipRRect(
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(16.0)),
+                            borderRadius: BorderRadius.circular(16.0),
                             child: Image.network(
                               stream.snapshotUrl,
                               fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.broken_image,
+                                    size: 50, color: Colors.red),
+                              ),
                               loadingBuilder:
                                   (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
+                                    child: CircularProgressIndicator());
                               },
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(Icons.broken_image,
-                                    size: 40, color: Colors.red),
-                              ),
                             ),
                           )
                         : const Center(
-                            child: Text(
-                              "Snapshot unavailable",
-                              style: TextStyle(color: Colors.black),
-                            ),
+                            child: Text("Snapshot unavailable",
+                                style: TextStyle(color: Colors.black)),
                           ))
-                    : Container(
-                        color: Colors.black,
-                        child: const Center(
-                          child: Icon(Icons.error, size: 50, color: Colors.red),
-                        ),
+                    : const Center(
+                        child: Icon(Icons.error, size: 50, color: Colors.red),
                       ),
               ),
             ),
+
             // Action Buttons Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
