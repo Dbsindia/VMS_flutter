@@ -30,7 +30,10 @@ class StreamCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FullScreenView(stream: stream),
+              builder: (context) => SimpleVlcPlayer(
+                stream: stream,
+                url: stream.url,
+              ),
             ),
           );
         } else {

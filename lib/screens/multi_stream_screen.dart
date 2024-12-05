@@ -235,8 +235,10 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      FullScreenView(stream: stream),
+                                  builder: (context) => SimpleVlcPlayer(
+                                    stream: stream,
+                                    url: stream.url,
+                                  ),
                                 ),
                               );
                             },
