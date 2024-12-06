@@ -48,7 +48,7 @@ class _MyAppRootState extends State<MyAppRoot> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Endroid Streaming',
+      title: 'Endroid Streaming App',
       theme: ThemeData(primarySwatch: Colors.deepPurple),
       home: const LoginScreen(),
     );
