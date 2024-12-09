@@ -181,14 +181,37 @@ class _MultiStreamScreenState extends State<MultiStreamScreen> {
             icon: const Icon(Icons.grid_view),
             tooltip: "Change Layout",
             onSelected: (value) {
-              streamProvider.updateGridLayout(value);
-              _showSnackBar("Layout changed to $value x $value");
+              if (value >= 1 && value <= 4) {
+                streamProvider.updateGridLayout(value);
+                _showSnackBar("Layout changed to $value x $value");
+              } else {
+                _showSnackBar("Invalid layout selection.");
+              }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 1, child: Text("1x1 Layout")),
-              const PopupMenuItem(value: 2, child: Text("2x2 Layout")),
-              const PopupMenuItem(value: 3, child: Text("3x3 Layout")),
-            ],
+            itemBuilder: (context) {
+              final layoutOptions = [1, 2, 3, 4];
+              return layoutOptions.map((value) {
+                final isSelected = value == streamProvider.gridCount;
+                return PopupMenuItem(
+                  value: value,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.grid_on,
+                              color: isSelected ? Colors.green : Colors.grey),
+                          const SizedBox(width: 8.0),
+                          Text("$value x $value Layout"),
+                        ],
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check, color: Colors.green),
+                    ],
+                  ),
+                );
+              }).toList();
+            },
           ),
         ],
       ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:endroid/services/firebase_service.dart'; // Import FirebaseService
+import 'package:endroid/services/firebase_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:easy_onvif/onvif.dart';
 import 'package:ping_discover_network_forked/ping_discover_network_forked.dart';
@@ -62,7 +62,7 @@ class _NetworkCamerasScreenState extends State<NetworkCamerasScreen> {
 
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in username and password.")),
+        const SnackBar(content: Text("Please fill in username and password to add camera.")),
       );
       return;
     }
@@ -125,7 +125,7 @@ class _NetworkCamerasScreenState extends State<NetworkCamerasScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Enter ONVIF Credentials"),
+          title: const Text("Enter Camera ONVIF Credentials"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -196,11 +196,7 @@ class _NetworkCamerasScreenState extends State<NetworkCamerasScreen> {
                   onTap: () => _showCredentialsDialog(device['ip']!),
                   trailing: IconButton(
                     icon: const Icon(Icons.add),
-                    onPressed: () => _saveCameraToFirestore(
-                      device['name']!,
-                      device['ip']!,
-                      '', // Placeholder for snapshot URL if not available
-                    ),
+                    onPressed: () => _showCredentialsDialog(device['ip']!),
                   ),
                 );
               },

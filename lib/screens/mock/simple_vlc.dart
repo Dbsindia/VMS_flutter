@@ -185,32 +185,49 @@ void dispose() {
   }
 
   Widget _buildActionButtons() {
-    final liveButtons = [
-      ActionButton(
-          icon: Icons.videocam,
-          label: isRecording ? 'Stop' : 'Record',
-          onPressed: _toggleRecording),
-      const ActionButton(icon: Icons.mic, label: 'Talk'),
-      ActionButton(
-          icon: Icons.photo_camera,
-          label: 'Screenshot',
-          onPressed: _takeScreenshot),
-      const ActionButton(icon: Icons.settings, label: 'PTZ'),
-      const ActionButton(icon: Icons.hd, label: 'Quality'),
-      ActionButton(
-        icon: isMuted ? Icons.volume_off : Icons.volume_up,
-        label: isMuted ? 'Unmute' : 'Mute',
-        onPressed: _toggleAudio,
-      ),
-    ];
+  final liveButtons = [
+    ActionButton(
+        icon: Icons.videocam,
+        label: isRecording ? 'Stop' : 'Record',
+        onPressed: _toggleRecording),
+    const ActionButton(icon: Icons.mic, label: 'Talk'),
+    ActionButton(
+        icon: Icons.photo_camera,
+        label: 'Screenshot',
+        onPressed: _takeScreenshot),
+    const ActionButton(icon: Icons.settings, label: 'PTZ'),
+    const ActionButton(icon: Icons.hd, label: 'Quality'),
+    ActionButton(
+      icon: isMuted ? Icons.volume_off : Icons.volume_up,
+      label: isMuted ? 'Unmute' : 'Mute',
+      onPressed: _toggleAudio,
+    ),
+  ];
 
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: liveButtons,
-    );
-  }
+  final playbackButtons = [
+    const ActionButton(icon: Icons.calendar_today, label: 'Date'),
+    const ActionButton(icon: Icons.fast_rewind, label: 'Rewind'),
+    ActionButton(
+        icon: Icons.photo_camera,
+        label: 'Screenshot',
+        onPressed: _takeScreenshot),
+    ActionButton(
+      icon: isMuted ? Icons.volume_off : Icons.volume_up,
+      label: isMuted ? 'Unmute' : 'Mute',
+      onPressed: _toggleAudio,
+    ),
+    const ActionButton(icon: Icons.download, label: 'Download'),
+    const SizedBox(), // Empty slot for spacing
+  ];
+
+  return GridView.count(
+    crossAxisCount: 3,
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    children: isLive ? liveButtons : playbackButtons,
+  );
+}
+
 
   Widget _buildStreamPlayer() {
     return Stack(

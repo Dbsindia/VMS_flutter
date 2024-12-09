@@ -156,15 +156,23 @@ class StreamCard extends StatelessWidget {
                       ? const Icon(Icons.play_arrow, color: Colors.green)
                       : const Icon(Icons.pause, color: Colors.grey),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          stream.isOnline
-                              ? "Stream is live."
-                              : "Stream is offline.",
+                    if (stream.isOnline) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SimpleVlcPlayer(
+                            stream: stream,
+                            url: stream.url, // Pass the stream data if needed
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Stream is offline."),
+                        ),
+                      );
+                    }
                   },
                 ),
                 IconButton(
