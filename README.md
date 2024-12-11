@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Endroid
 
 Camera Streaming Application for Endroid USA
@@ -247,3 +248,6 @@ endroid/
 ---
 
 This should give anyone working on the project a solid understanding of how it works, how to set it up, and how they can contribute or use it in their own projects. Let me know if you need any further adjustments! @github.com/shivu21
+=======
+# VMS_flutter
+>>>>>>> dd4d9bd71783c4a0153634dd5f92c3070092e9c2
