@@ -55,11 +55,14 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "John Doe",
-                style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold, color: Colors.white),
+                "Naman Pahwa",
+                style: TextStyle(
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
               const Text(
-                "johndoe@example.com",
+                "DBSNaman@.com",
                 style: TextStyle(fontSize: 16.0, color: Colors.white70),
               ),
               TextButton.icon(
@@ -99,7 +102,7 @@ class ProfileScreen extends StatelessWidget {
           _buildListTile(
             icon: Icons.email,
             title: "Email",
-            subtitle: "johndoe@example.com",
+            subtitle: "DBSNaman@.com",
           ),
           _buildListTile(
             icon: Icons.phone,
